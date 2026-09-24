@@ -1,0 +1,156 @@
+name: Build Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      # android/ is intentionally not committed to the repo (see .gitignore)
+      # so nobody needs Flutter/Android Studio installed locally just to
+      # keep this file in sync. We regenerate it fresh on every build, then
+      # patch in the AdMob App ID and INTERNET permission it needs.
+      - name: Generate Android platform project
+        run: flutter create --platforms=android --org com.trungsmail --project-name wave_rush .
+
+      - name: Patch AndroidManifest.xml (AdMob + app label + landscape)
+        env:
+          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+        run: |
+          set -e
+          APP_ID="${ADMOB_APP_ID:-ca-app-pub-3940256099942544~3347511713}"
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if [ -z "${ADMOB_APP_ID}" ]; then
+            echo "::warning::ADMOB_APP_ID secret not set — using Google's TEST AdMob App ID. Ads will show as test ads only. Set the ADMOB_APP_ID secret before publishing."
+          fi
+          sed -i "s#<application#<uses-permission android:name=\"android.permission.INTERNET\"/>\n  <application#" "$MANIFEST"
+          sed -i "s#</application>#    <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"${APP_ID}\"/>\n  </application>#" "$MANIFEST"
+          sed -i -E 's/android:label="[^"]*"/android:label="Wave Rush"/g' "$MANIFEST"
+          # Landscape-only game: lock it at the manifest level too, so the
+          # launch splash doesn't flash in portrait before Dart's
+          # SystemChrome.setPreferredOrientations kicks in.
+          sed -i -E 's/<activity/<activity android:screenOrientation="sensorLandscape"/' "$MANIFEST"
+          cat "$MANIFEST"
+
+      # google_mobile_ads requires minSdk 24+ (and a recent compileSdk).
+      # flutter create defaults these to `flutter.minSdkVersion` /
+      # `flutter.compileSdkVersion`, which can lag behind what current
+      # plugins need, so force explicit values here. Handles both the
+      # Groovy (build.gradle) and Kotlin DSL (build.gradle.kts) templates
+      # since Flutter has changed the default over time.
+      - name: Raise minSdk/compileSdk for plugin compatibility
+        run: |
+          set -e
+          for f in android/app/build.gradle android/app/build.gradle.kts; do
+            if [ -f "$f" ]; then
+              echo "Patching $f"
+              if [[ "$f" == *.kts ]]; then
+                sed -i -E 's/minSdk( )?=.*/minSdk = 24/' "$f"
+                sed -i -E 's/compileSdk( )?=.*/compileSdk = 36/' "$f"
+              else
+                sed -i -E 's/minSdkVersion .*/minSdkVersion 24/' "$f"
+                sed -i -E 's/compileSdkVersion .*/compileSdkVersion 36/' "$f"
+              fi
+              grep -nE 'minSdk|compileSdk' "$f"
+            fi
+          done
+
+      # Recent AGP versions run R8 much more aggressively and strip
+      # androidx.work's WorkDatabase_Impl (only referenced via reflection),
+      # which crashes every screen with "Unable to get provider
+      # androidx.startup.InitializationProvider" / "Failed to create an
+      # instance of androidx.work.impl.WorkDatabase" the moment the app
+      # opens on a real device — WorkManager gets pulled in transitively by
+      # google_mobile_ads. Rather than leaving shrinking off forever (Play
+      # Console flags that as "Low" app optimization), turn it on and add
+      # the specific keep rules that avoid the crash.
+      - name: Enable release code shrinking (with WorkManager keep rules)
+        run: |
+          set -e
+          cat tool/proguard-rules-extra.pro >> android/app/proguard-rules.pro
+          if [ -f android/app/build.gradle.kts ]; then
+            perl -0777 -pi -e 's/release \{/release {\n            isMinifyEnabled = true\n            isShrinkResources = true\n            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")/' android/app/build.gradle.kts
+            grep -n -A5 'release {' android/app/build.gradle.kts
+          elif [ -f android/app/build.gradle ]; then
+            perl -0777 -pi -e 's/release \{/release {\n            minifyEnabled true\n            shrinkResources true\n            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"/' android/app/build.gradle
+            grep -n -A5 'release {' android/app/build.gradle
+          fi
+
+      # If the KEYSTORE_BASE64 secret is set, decode the release keystore
+      # and wire it into android/app/build.gradle(.kts) as the "release"
+      # signingConfig via the standard Flutter key.properties pattern
+      # (https://docs.flutter.dev/deployment/android#signing-the-app), so
+      # the resulting APK/AAB is signed with a real upload key instead of
+      # the debug key Play Store rejects. Without the secret, this is a
+      # no-op and the build stays debug-signed (fine for sideload testing,
+      # not for a store upload).
+      - name: Configure release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -e
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 secret not set — building a debug-signed APK/AAB only. Fine for sideloading, NOT acceptable for a Play Store upload."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n' \
+            "$KEYSTORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
+          node tool/patch_signing.js
+          grep -n -A5 'signingConfigs' android/app/build.gradle.kts android/app/build.gradle 2>/dev/null || true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Reads assets/icon/icon.png and writes it into every
+      # android/app/src/main/res/mipmap-*/ launcher icon slot. Must run
+      # after "Generate Android platform project" (needs android/ to
+      # exist) and after "Install dependencies" (needs the package itself).
+      - name: Generate launcher icon
+        run: dart run flutter_launcher_icons
+
+      - name: Analyze (non-blocking)
+        run: flutter analyze || true
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      # Play Console requires the App Bundle format for new app uploads.
+      - name: Build release App Bundle
+        run: flutter build appbundle --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave-rush-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      - name: Upload App Bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave-rush-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
