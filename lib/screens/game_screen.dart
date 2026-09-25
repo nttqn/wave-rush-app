@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../game/custom_level.dart';
 import '../game/levels.dart';
 import '../game/wave_engine.dart';
 import '../services/ads_service.dart';
+import '../services/custom_level_store.dart';
 import '../services/progress_service.dart';
 import '../services/sound_service.dart';
 import '../ui/game_painter.dart';
@@ -15,10 +17,14 @@ import '../ui/palettes.dart';
 
 const _trackBpm = [128.0, 140.0, 150.0];
 
-/// Plays one level, or endless mode when [level] is null.
+/// Plays a built-in [level], a player-made [custom] level, or endless mode
+/// when both are null. [testPlay] is the editor's "try it" run: no ads, no
+/// saved progress, and the finish panel leads back to the editor.
 class GameScreen extends StatefulWidget {
   final LevelDef? level;
-  const GameScreen({super.key, required this.level});
+  final CustomLevel? custom;
+  final bool testPlay;
+  const GameScreen({super.key, required this.level, this.custom, this.testPlay = false});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -36,10 +42,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _paused = false;
   bool _newRecord = false;
 
-  bool get _endless => widget.level == null;
-  late final int _track = widget.level?.music ?? math.Random().nextInt(SoundService.musicFiles.length);
+  bool get _endless => widget.level == null && widget.custom == null;
+  String get _title => widget.level?.name ?? widget.custom?.name ?? 'ENDLESS';
+  late final int _track = widget.level?.music ?? widget.custom?.music ?? math.Random().nextInt(SoundService.musicFiles.length);
   late final LevelPalette _palette =
-      kPalettes[widget.level?.palette ?? math.Random().nextInt(kPalettes.length)];
+      kPalettes[widget.level?.palette ?? widget.custom?.palette ?? math.Random().nextInt(kPalettes.length)];
 
   @override
   void initState() {
@@ -51,8 +58,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   WaveEngine _createEngine() {
     final def = widget.level;
+    final custom = widget.custom;
     final WaveEngine engine;
-    if (def == null) {
+    if (custom != null) {
+      engine = WaveEngine(level: custom.toLevelData());
+    } else if (def == null) {
       final builder = buildEndless(math.Random().nextInt(1 << 30));
       engine = WaveEngine(level: builder.level, endlessBuilder: builder);
     } else {
@@ -74,18 +84,26 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     final sound = SoundService.instance;
     sound.stopMusic();
     sound.play(SoundEffect.death);
-    final def = widget.level;
-    if (def != null) {
-      ProgressService.instance.recordAttempt(def.id, _engine.progress);
-    } else {
+    if (_endless) {
       _newRecord = ProgressService.instance.recordEndless(_engine.distance);
+    } else {
+      _recordProgress(_engine.progress);
     }
   }
 
   void _onWin() {
     SoundService.instance.stopMusic();
     SoundService.instance.play(SoundEffect.win);
-    ProgressService.instance.recordAttempt(widget.level!.id, 1.0);
+    _recordProgress(1.0);
+  }
+
+  /// Saves the attempt's progress for built-in and player-made levels.
+  /// Editor test runs don't count.
+  void _recordProgress(double progress) {
+    if (widget.testPlay) return;
+    final def = widget.level, custom = widget.custom;
+    if (def != null) ProgressService.instance.recordAttempt(def.id, progress);
+    if (custom != null) CustomLevelStore.instance.recordProgress(custom.id, progress);
   }
 
   void _onTick(Duration elapsed) {
@@ -155,9 +173,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         _engine = _createEngine()..attempts = attempts + 1;
         SoundService.instance.stopMusic();
       } else {
-        if (_engine.state == RunState.playing) {
-          ProgressService.instance.recordAttempt(widget.level!.id, _engine.progress);
-        }
+        if (_engine.state == RunState.playing) _recordProgress(_engine.progress);
         _engine.restart();
         _engine.setHolding(false);
       }
@@ -167,15 +183,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   void _exit() {
-    final def = widget.level;
-    if (def != null && _engine.state == RunState.playing) {
-      ProgressService.instance.recordAttempt(def.id, _engine.progress);
-    }
+    if (!_endless && _engine.state == RunState.playing) _recordProgress(_engine.progress);
     // Natural break: leaving a level after a real session, or after a win.
-    if (_engine.attempts >= 3 || _engine.state == RunState.won || _endless) {
+    // Never while bouncing between the editor and its test runs.
+    if (!widget.testPlay && (_engine.attempts >= 3 || _engine.state == RunState.won || _endless)) {
       AdsService.instance.maybeShowInterstitial();
     }
-    Navigator.of(context).pop();
+    // Test runs report back whether the creator reached the finish — a
+    // human clear counts as verification, same as the solver's.
+    Navigator.of(context).pop(_engine.state == RunState.won);
   }
 
   void _nextLevel() {
@@ -354,7 +370,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            NeonTitle(widget.level?.name ?? 'ENDLESS', size: 34, color: _palette.wallLine),
+            NeonTitle(widget.testPlay ? 'TEST: $_title' : _title, size: 34, color: _palette.wallLine),
             const SizedBox(height: 8),
             const Text(
               'HOLD ANYWHERE TO START',
@@ -378,13 +394,22 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildPauseMenu() {
-    final def = widget.level;
+    final def = widget.level, custom = widget.custom;
+    final best = def != null
+        ? ProgressService.instance.bestPercent(def.id)
+        : custom != null
+            ? CustomLevelStore.instance.bestPercent(custom.id)
+            : null;
     return _panel(children: [
       const NeonTitle('PAUSED', size: 40),
-      if (def != null) ...[
+      if (!_endless) ...[
         const SizedBox(height: 6),
         Text(
-          '${def.name}  ·  Best ${ProgressService.instance.bestPercent(def.id)}%  ·  Attempt ${_engine.attempts}',
+          [
+            _title,
+            if (best != null && !widget.testPlay) 'Best $best%',
+            'Attempt ${_engine.attempts}',
+          ].join('  ·  '),
           style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
         ),
       ],
@@ -397,8 +422,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           NeonButton(label: 'RESUME', icon: Icons.play_arrow_rounded, filled: true, width: 180, onPressed: _resume),
           NeonButton(label: 'RESTART', icon: Icons.replay, width: 180, onPressed: _restart),
           NeonButton(
-            label: 'MENU',
-            icon: Icons.home_rounded,
+            label: widget.testPlay ? 'EDITOR' : 'MENU',
+            icon: widget.testPlay ? Icons.edit : Icons.home_rounded,
             color: const Color(0xFFFF5CF0),
             width: 180,
             onPressed: _exit,
@@ -411,13 +436,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildWinPanel() {
-    final def = widget.level!;
-    final isLast = kLevels.indexOf(def) == kLevels.length - 1;
+    final def = widget.level;
+    final hasNext = def != null && kLevels.indexOf(def) < kLevels.length - 1;
     return _panel(children: [
       const NeonTitle('LEVEL COMPLETE!', size: 40, color: Color(0xFF4DFF9A)),
       const SizedBox(height: 8),
       Text(
-        '${def.name}  ·  ${_engine.attempts} attempt${_engine.attempts == 1 ? '' : 's'}  ·  ${_engine.runTime.toStringAsFixed(1)}s',
+        '$_title  ·  ${_engine.attempts} attempt${_engine.attempts == 1 ? '' : 's'}  ·  ${_engine.runTime.toStringAsFixed(1)}s',
         style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
       ),
       const SizedBox(height: 18),
@@ -426,9 +451,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         runSpacing: 12,
         alignment: WrapAlignment.center,
         children: [
-          NeonButton(label: 'MENU', icon: Icons.home_rounded, width: 170, onPressed: _exit),
+          NeonButton(
+            label: widget.testPlay ? 'EDITOR' : 'MENU',
+            icon: widget.testPlay ? Icons.edit : Icons.home_rounded,
+            width: 170,
+            onPressed: _exit,
+          ),
           NeonButton(label: 'REPLAY', icon: Icons.replay, width: 170, onPressed: _restart),
-          if (!isLast)
+          if (hasNext)
             NeonButton(
               label: 'NEXT',
               icon: Icons.skip_next_rounded,

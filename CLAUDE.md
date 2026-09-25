@@ -30,3 +30,11 @@ in this series). Package `com.trungsmail.wave_rush`.
 `flutter analyze` is clean, and all tests pass (12 levels + 3 endless seeds solved to 2500m, plus engine
 behaviour). The web build was walked through in Playwright at 844x390 @3x: home → level select → play →
 crash → auto-restart (Attempt 2) → pause.
+
+## Level editor (added 2026-09-25)
+- `lib/game/custom_level.dart`: `CustomLevel` is pure Dart. It holds wall *control points* in `0..length`, spikes, saws and portals. All editing operations are methods on it, and each one clears `verified`. It also handles JSON and the share code (`WAVE1:` + base64url JSON; `verified` is never carried in a code). `toLevelData()` feeds the normal engine, so play, solver and editor preview all use the same geometry.
+- `lib/services/custom_level_store.dart` stores the level list as one JSON string in shared_preferences, plus the best % for each level.
+- `lib/screens/editor_screen.dart`: tap = place with the current tool (snapped to 0.5), horizontal drag = scroll. Every edit goes through `_mutate()` (undo snapshot + rebuild). Verify runs `LevelSolver` via `compute()`; on failure it draws a red line at `reachedX`. Test play runs `GameScreen(custom:, testPlay: true)`, which records no progress and shows no ads, and pops `true` if the player won, which also verifies the level.
+- `GamePainter.cameraLeft` switches the painter into editor mode (fixed camera, no wave drawn).
+- `lib/screens/my_levels_screen.dart`: list/new/edit/play/share/import/delete. Sharing requires a verified level.
+- Verified with Playwright: placing every tool, verify fail (red line) and verify pass, test play → pause → EDITOR, and the My Levels list.

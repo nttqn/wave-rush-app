@@ -13,6 +13,7 @@ the music and sound effects.
 - Instant restarts, an attempt counter, a progress bar, and the best % saved for each level.
 - Endless mode. Difficulty goes up with distance, and every run is a new random course.
 - 8 wave skins, unlocked by beating levels.
+- **Level editor** (CREATE): tap to place floor/ceiling points, spikes, saws and portals, and drag to scroll. It has undo and per-level settings (length, speed, colours, music). Test-play any time. **Verify** runs the solver: it either proves the level is beatable or marks the spot where no timing gets through with a red line. Beating your own level in a test run also verifies it. Verified levels can be shared as a text code (`WAVE1:…`, copied to the clipboard), and friends can import that code.
 - 3 synthesized music loops that restart with every attempt, plus sound effects. Music and SFX have separate toggles.
 - AdMob banner on the menus only, never during play. Interstitials only at natural breaks.
 - The Android back button pauses during play. It never quits in the middle of an attempt.

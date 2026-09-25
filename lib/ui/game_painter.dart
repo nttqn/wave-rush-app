@@ -14,6 +14,10 @@ class GamePainter extends CustomPainter {
   final WaveSkin skin;
   final double bpm;
 
+  /// Editor: fixed camera (world x of the left screen edge) instead of
+  /// following the wave, and no wave drawn.
+  final double? cameraLeft;
+
   /// Where on screen (fraction of width) the wave sits horizontally.
   static const double playerScreenX = 0.3;
 
@@ -23,6 +27,7 @@ class GamePainter extends CustomPainter {
     required this.skin,
     required this.bpm,
     required Listenable repaint,
+    this.cameraLeft,
   }) : super(repaint: repaint);
 
   @override
@@ -30,7 +35,7 @@ class GamePainter extends CustomPainter {
     const h = LevelData.worldHeight;
     final s = size.height / h;
     final viewW = size.width / s;
-    final camX = engine.x - viewW * playerScreenX;
+    final camX = cameraLeft ?? engine.x - viewW * playerScreenX;
     final x0 = camX - 1, x1 = camX + viewW + 1;
 
     final beat = engine.state == RunState.playing ? (engine.runTime * bpm / 60) % 1.0 : 0.5;
@@ -47,8 +52,10 @@ class GamePainter extends CustomPainter {
     _drawFinish(canvas, x0, x1);
     _drawWalls(canvas, x0, x1, pulse);
     _drawHazards(canvas, x0, x1);
-    _drawTrail(canvas, x0);
-    if (engine.state != RunState.dead) _drawWave(canvas);
+    if (cameraLeft == null) {
+      _drawTrail(canvas, x0);
+      if (engine.state != RunState.dead) _drawWave(canvas);
+    }
     _drawParticles(canvas);
 
     canvas.restore();
@@ -365,7 +372,7 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawAttemptLabel(Canvas canvas, Size size, double camX, double s) {
-    if (engine.endless) return;
+    if (engine.endless || cameraLeft != null) return;
     const labelX = 3.0;
     final sx = (labelX - camX) * s;
     if (sx < -size.width) return;
@@ -386,5 +393,5 @@ class GamePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant GamePainter old) =>
-      old.engine != engine || old.palette != palette || old.skin != skin;
+      old.engine != engine || old.palette != palette || old.skin != skin || old.cameraLeft != cameraLeft;
 }
