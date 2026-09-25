@@ -43,23 +43,31 @@ class NeonButton extends StatelessWidget {
               SoundService.instance.play(SoundEffect.click);
               onPressed();
             },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, color: filled ? Colors.black : color, size: 22),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: filled ? Colors.black : Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 17,
-                    letterSpacing: 1.5,
-                  ),
+            // Scales the label down instead of overflowing when a narrow
+            // button meets a large system font size.
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, color: filled ? Colors.black : color, size: 22),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: filled ? Colors.black : Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 17,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
