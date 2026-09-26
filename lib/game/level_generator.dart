@@ -172,15 +172,16 @@ class LevelBuilder {
     final path = _genPath(x0, x0 + length, lo, hi, slope, speed, d);
     final x1 = path.last.x;
 
+    final clearance = radius * LevelData.hazardRadiusFactor + d.margin + _stepSlack;
     if (type == SectionType.tunnel) {
-      for (final p in path) {
-        _addWallPoint(level.floor, Vec(p.x, p.y - gap / 2));
-        _addWallPoint(level.ceiling, Vec(p.x, p.y + gap / 2));
-      }
+      _addFunnelledWall(level.floor, path, -gap / 2, slope);
+      _addFunnelledWall(level.ceiling, path, gap / 2, slope);
+      // Tunnel walls are slide surfaces, so the challenge in a tunnel is
+      // the small spikes lining them.
+      _placeWallSpikes(path, gap, clearance, d);
     } else {
       _addWalls(x0, x1, _roomFloor, _roomCeiling);
       if (type != SectionType.runway) {
-        final clearance = radius * LevelData.hazardRadiusFactor + d.margin + _stepSlack;
         _placeHazards(type, path, x0, x1, clearance, d);
       }
     }
@@ -280,6 +281,74 @@ class LevelBuilder {
     newSaws.sort((a, b) => a.x.compareTo(b.x));
     level.spikes.addAll(newSpikes);
     level.saws.addAll(newSaws);
+  }
+
+  /// Tunnel wall following the safe path at [offset], but entered through a
+  /// funnel: from wherever the previous section's wall ended, it slopes
+  /// toward the tunnel at the wave's own slope (a slide surface) instead of
+  /// jumping there as a vertical cliff the wave would smash into. The
+  /// funnel always stays on the outer side of the tunnel wall, so the safe
+  /// path's clearance is untouched.
+  void _addFunnelledWall(List<Vec> wall, List<Vec> path, double offset, double slope) {
+    final ceiling = offset > 0;
+    final x0 = path.first.x;
+    double target(double x) => pathYAt(path, x) + offset;
+    final start = wall.isEmpty ? target(x0) : wall.last.y;
+    // Only funnel when the tunnel is narrower (wall moving inward);
+    // widening is a harmless drop.
+    final inward = ceiling ? start > target(x0) : start < target(x0);
+    var from = 0;
+    if (inward) {
+      double ramp(double x) => start + (ceiling ? -1 : 1) * slope * (x - x0);
+      bool reached(double x) => ceiling ? ramp(x) <= target(x) : ramp(x) >= target(x);
+      var xm = x0;
+      while (!reached(xm) && xm < path.last.x) {
+        xm += 0.02;
+      }
+      _addWallPoint(wall, Vec(x0, start));
+      _addWallPoint(wall, Vec(xm, target(xm)));
+      while (from < path.length && path[from].x <= xm) {
+        from++;
+      }
+    }
+    for (var i = from; i < path.length; i++) {
+      _addWallPoint(wall, Vec(path[i].x, path[i].y + offset));
+    }
+  }
+
+  /// Small spikes standing perpendicular on a tunnel's floor/ceiling (which
+  /// follow the safe path at ±gap/2), sized to keep clear of the path.
+  void _placeWallSpikes(List<Vec> path, double gap, double clearance, Difficulty d) {
+    final added = <Spike>[];
+    var onFloor = _rng.nextBool();
+    var x = path.first.x + 1.5;
+    while (x < path.last.x - 1.5) {
+      const w = 0.8;
+      final side = onFloor ? -1.0 : 1.0;
+      final a = Vec(x, pathYAt(path, x) + side * gap / 2);
+      final b = Vec(x + w, pathYAt(path, x + w) + side * gap / 2);
+      // Unit normal pointing into the corridor.
+      final len = math.sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y));
+      var nx = -(b.y - a.y) / len, ny = (b.x - a.x) / len;
+      if (!onFloor) {
+        nx = -nx;
+        ny = -ny;
+      }
+      final mid = Vec((a.x + b.x) / 2, (a.y + b.y) / 2);
+      for (var h = 0.9; h >= 0.4; h -= 0.1) {
+        final c = Vec(mid.x + nx * h, mid.y + ny * h);
+        final clear =
+            _pathClearance(path, x - 2, x + w + 2, (px, py) => LevelData.distanceToTriangle(px, py, a, b, c));
+        if (clear >= clearance) {
+          added.add(onFloor ? Spike(a, b, c, fromCeiling: false) : Spike(b, a, c, fromCeiling: true));
+          break;
+        }
+      }
+      if (_rng.nextDouble() < 0.7) onFloor = !onFloor;
+      x += d.hazardSpacing * _rand(1.0, 1.8);
+    }
+    added.sort((p, q) => p.minX.compareTo(q.minX));
+    level.spikes.addAll(added);
   }
 
   Spike? _tryPlaceSpike(List<Vec> path, double x, bool onFloor, double clearance) {

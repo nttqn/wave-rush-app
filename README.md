@@ -9,6 +9,7 @@ the music and sound effects.
 - 12 levels, from Easy to Insane. Each level's geometry is generated from a fixed seed, so it is the same on every device.
 - Every level can be beaten. The generator first lays down a safe zig-zag path, then places every hazard
   away from it. The tests run `LevelSolver` on all levels to check this again.
+- **Slide surfaces**: floors and ceilings (flat, or sloped up to 2.5:1) are safe. Diving into one diagonally just makes the wave slide along it. Only spikes, saws and the vertical side of a step kill. Tunnels are entered through sloped funnels, and small spikes on their walls keep them challenging.
 - Speed portals (0.8x / 1x / 1.25x / 1.5x) and mini-wave portals, which give a steeper 63° flight and a smaller hitbox.
 - Instant restarts, an attempt counter, a progress bar, and the best % saved for each level.
 - Endless mode. Difficulty goes up with distance, and every run is a new random course.

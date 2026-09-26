@@ -38,3 +38,11 @@ crash → auto-restart (Attempt 2) → pause.
 - `GamePainter.cameraLeft` switches the painter into editor mode (fixed camera, no wave drawn).
 - `lib/screens/my_levels_screen.dart`: list/new/edit/play/share/import/delete. Sharing requires a verified level.
 - Verified with Playwright: placing every tool, verify fail (red line) and verify pass, test play → pause → EDITOR, and the My Levels list.
+
+## Slide physics (changed 2026-09-26, the user found the game too hard)
+Walls are no longer deadly on contact. `LevelData.resolveStep()` is the single physics step shared by the engine and `LevelSolver`. When the wave sinks into the floor or ceiling, it is pushed back out and slides along the surface. The push is limited to `maxSlideSlope * dx + |dy|`; anything deeper means the wave hit the vertical side of a step, which is a crash. Spikes and saws still kill (`hitsHazard`). The engine exposes `heading` and `sliding`: the arrow is drawn at its real movement angle, and trail corners are recorded where the real path bends.
+
+Generator changes that follow from this:
+- Tunnels are entered through funnels (`_addFunnelledWall`, which slopes at the wave's own slope) instead of cliffs.
+- Tunnels get small wall spikes (`_placeWallSpikes`) so they stay challenging.
+- A test asserts that no inward-facing wall segment is steeper than `maxSlideSlope`.

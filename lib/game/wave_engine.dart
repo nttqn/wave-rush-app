@@ -79,12 +79,20 @@ class WaveEngine {
   /// Endless-mode score: metres flown.
   int get distance => x.floor();
 
+  /// Angle the wave actually moved at in the last step (radians) — flat
+  /// while sliding along the ground, the surface's angle on a slope.
+  double heading = 0;
+
+  /// True while pressed against a floor/ceiling slide surface.
+  bool sliding = false;
+
+  /// Vertical movement of the previous step; a change means a trail corner.
+  double _lastDy = double.nan;
+
   void setHolding(bool value) {
     if (value == holding) return;
     holding = value;
-    if (state == RunState.playing) {
-      trail.add(Vec(x, y));
-    } else if (state == RunState.ready && value) {
+    if (state == RunState.ready && value) {
       state = RunState.playing;
       trail.add(Vec(x, y));
     }
@@ -127,17 +135,31 @@ class WaveEngine {
     }
 
     runTime += fixedDt;
-    x += speed * fixedDt;
-    y += direction * slope * speed * fixedDt;
+    final dx = speed * fixedDt;
+    final wanted = direction * slope * dx;
+    final ny = level.resolveStep(x + dx, y, wanted, dx, radius);
+    x += dx;
+    if (ny == null) {
+      y += wanted;
+      _die();
+      return;
+    }
+
+    final actualDy = ny - y;
+    // Record a trail corner wherever the real path bends (turns, landing
+    // on or leaving a slide surface, slope changes while sliding).
+    if (_lastDy.isNaN || (actualDy - _lastDy).abs() > 1e-6) trail.add(Vec(x - dx, y));
+    _lastDy = actualDy;
+    sliding = (actualDy - wanted).abs() > 1e-9;
+    heading = math.atan2(actualDy, dx);
+    y = ny;
 
     // Keep the trail bounded — only the last ~2 screens are ever drawn.
     if (trail.length > 2 && trail[1].x < x - 60) trail.removeAt(0);
 
     if (!endless) bestProgress = math.max(bestProgress, progress);
 
-    if (level.collides(x, y, radius)) {
-      _die();
-    } else if (x >= level.length) {
+    if (x >= level.length) {
       state = RunState.won;
       stateTimer = 0;
       bestProgress = 1;
@@ -184,9 +206,10 @@ class WaveEngine {
     runTime = 0;
     stateTimer = 0;
     _acc = 0;
-    trail
-      ..clear()
-      ..add(Vec(x, y));
+    _lastDy = double.nan;
+    heading = 0;
+    sliding = false;
+    trail.clear();
     // Keep flying if the player is still holding from before the crash —
     // that's what makes restarts feel instant.
     state = RunState.playing;
@@ -220,10 +243,10 @@ class LevelSolver {
       final nx = x + speed * WaveEngine.fixedDt;
       final next = <int, double>{};
       for (final y in states.values) {
-        for (final ny in [y + dy, y - dy]) {
-          final key = (ny / bucket).round();
-          if (next.containsKey(key)) continue;
-          if (!level.collides(nx, ny, r)) next[key] = ny;
+        for (final move in [dy, -dy]) {
+          final ny = level.resolveStep(nx, y, move, nx - x, r);
+          if (ny == null) continue;
+          next.putIfAbsent((ny / bucket).round(), () => ny);
         }
       }
       if (next.isEmpty) return SolveResult(false, x);

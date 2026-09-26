@@ -331,7 +331,8 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawWave(Canvas canvas) {
-    final angle = math.atan(engine.direction * engine.slope);
+    // Real movement angle: lies flat while sliding along the ground.
+    final angle = engine.state == RunState.playing ? engine.heading : math.atan(engine.direction * engine.slope);
     canvas.save();
     canvas.translate(engine.x, engine.y);
     canvas.rotate(angle);

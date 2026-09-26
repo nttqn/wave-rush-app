@@ -33,6 +33,21 @@ void main() {
       }
     });
 
+    test('no cliff walls: every inward-facing wall segment is a slide surface', () {
+      for (final def in kLevels) {
+        final level = def.build();
+        for (final (wall, sign) in [(level.floor, 1.0), (level.ceiling, -1.0)]) {
+          for (var i = 1; i < wall.length; i++) {
+            final a = wall[i - 1], b = wall[i];
+            // Floor rising / ceiling dropping = facing the oncoming wave.
+            final rise = sign * (b.y - a.y) / (b.x - a.x);
+            expect(rise, lessThanOrEqualTo(LevelData.maxSlideSlope + 1e-6),
+                reason: 'level ${def.id}: cliff at x=${a.x.toStringAsFixed(2)}');
+          }
+        }
+      }
+    });
+
     for (final seed in [1, 2, 3]) {
       test('endless run seed $seed is beatable for 2500m', () {
         final builder = buildEndless(seed);
@@ -64,20 +79,67 @@ void main() {
       expect(e.y - 5, closeTo(e.x, 0.01)); // 45° while holding
     });
 
-    test('crashes into the floor when never holding, then auto-restarts', () {
+    void fly(WaveEngine e, double seconds) {
+      for (var t = 0.0; t < seconds; t += 1 / 60) {
+        e.update(1 / 60);
+      }
+    }
+
+    test('diving into flat floor slides along it instead of crashing', () {
       var deaths = 0;
       final e = WaveEngine(level: openLevel())..onDeath = () => deaths++;
       e.setHolding(true);
       e.setHolding(false);
-      for (var i = 0; i < 60; i++) {
-        e.update(1 / 60);
-      }
+      fly(e, 1.5);
+      expect(deaths, 0);
+      expect(e.sliding, isTrue);
+      expect(e.y, closeTo(0.5 + LevelData.normalRadius, 1e-9));
+      expect(e.heading, closeTo(0, 1e-9)); // arrow lies flat
+    });
+
+    test('holding into the ceiling slides along it too', () {
+      final e = WaveEngine(level: openLevel());
+      e.setHolding(true);
+      fly(e, 1.5);
+      expect(e.state, RunState.playing);
+      expect(e.y, closeTo(9.5 - LevelData.normalRadius, 1e-9));
+    });
+
+    test('slides up a 45° ramp', () {
+      final level = LevelData(baseSpeed: 8, length: 80)
+        ..floor.addAll(const [Vec(-10, 0.5), Vec(10, 0.5), Vec(14, 4.5), Vec(100, 4.5)])
+        ..ceiling.addAll(const [Vec(-10, 9.5), Vec(100, 9.5)]);
+      final e = WaveEngine(level: level);
+      e.setHolding(true);
+      e.setHolding(false);
+      fly(e, 2.2);
+      expect(e.state, RunState.playing);
+      expect(e.y, closeTo(4.5 + LevelData.normalRadius, 1e-9));
+    });
+
+    test('flying into the vertical side of a step crashes, then auto-restarts', () {
+      var deaths = 0;
+      final level = LevelData(baseSpeed: 8, length: 80)
+        ..floor.addAll(const [Vec(-10, 0.5), Vec(10, 0.5), Vec(10.001, 4.5), Vec(100, 4.5)])
+        ..ceiling.addAll(const [Vec(-10, 9.5), Vec(100, 9.5)]);
+      final e = WaveEngine(level: level)..onDeath = () => deaths++;
+      e.setHolding(true);
+      e.setHolding(false);
+      fly(e, 1.5);
       expect(deaths, 1);
-      for (var i = 0; i < 60; i++) {
-        e.update(1 / 60);
-      }
+      expect(e.x, closeTo(10, 0.2));
+      fly(e, 1.0);
       expect(e.attempts, 2);
-      expect(e.state, isNot(RunState.ready));
+    });
+
+    test('spikes still kill', () {
+      var deaths = 0;
+      final level = openLevel()..spikes.add(Spike(const Vec(4, 0.5), const Vec(5, 0.5), const Vec(4.5, 2.5), fromCeiling: false));
+      final e = WaveEngine(level: level)..onDeath = () => deaths++;
+      e.setHolding(true);
+      e.setHolding(false);
+      fly(e, 1.0);
+      expect(deaths, 1);
     });
 
     test('reaches the finish by zig-zagging', () {

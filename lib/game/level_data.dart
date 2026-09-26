@@ -184,15 +184,43 @@ class LevelData {
 
   // ------------------------------------------------------------ collision
 
-  /// True if a wave of radius [r] centred at (x, y) touches anything deadly.
-  bool collides(double x, double y, double r) {
-    if (y - r < 0 || y + r > worldHeight) return true;
+  /// Floor/ceiling slopes up to this steepness are *slide surfaces*: the
+  /// wave hitting them diagonally just gets pushed out and slides along
+  /// (like the genre's safe ground). Anything steeper — the vertical side
+  /// of a step — is a crash.
+  static const double maxSlideSlope = 2.5;
 
-    // Walls: inside-the-wall test plus true distance to nearby segments, so
-    // steep wall corners can't be clipped through between samples.
-    if (y <= floorAt(x) || y >= ceilingAt(x)) return true;
-    if (_nearPolyline(floor, x, y, r) || _nearPolyline(ceiling, x, y, r)) return true;
+  /// One fixed physics step, shared by the engine and [LevelSolver] so
+  /// "the solver can beat it" means the same thing as "a player can".
+  ///
+  /// The wave (radius [r]) moved from height [y] by [dy] while advancing
+  /// [dx] to [nx]. Returns the resolved new height — pushed out of any
+  /// slide surface it sank into — or null if it crashed.
+  double? resolveStep(double nx, double y, double dy, double dx, double r) {
+    var ny = y + dy;
+    // A slide surface can push the wave by at most its own rise over this
+    // step plus the wave's own vertical travel; more than that means the
+    // wave went into the side of a step.
+    final maxPush = maxSlideSlope * dx + dy.abs() + 1e-6;
+    final f = floorAt(nx) + r;
+    if (ny < f) {
+      if (f - ny > maxPush) return null;
+      ny = f;
+    }
+    final c = ceilingAt(nx) - r;
+    if (ny > c) {
+      if (ny - c > maxPush) return null;
+      ny = c;
+    }
+    // Squeezed between floor and ceiling.
+    if (ny < f - 1e-9) return null;
+    if (ny - r < 0 || ny + r > worldHeight) return null;
+    if (hitsHazard(nx, ny, r)) return null;
+    return ny;
+  }
 
+  /// True if a wave of radius [r] at (x, y) touches a spike or saw.
+  bool hitsHazard(double x, double y, double r) {
     final hr = r * hazardRadiusFactor;
     for (final s in spikesInRange(x - hr, x + hr)) {
       if (distanceToTriangle(x, y, s.a, s.b, s.c) < hr) return true;
@@ -201,17 +229,6 @@ class LevelData {
       final dx = x - s.x, dy = y - s.y;
       final rr = s.radius + hr;
       if (dx * dx + dy * dy < rr * rr) return true;
-    }
-    return false;
-  }
-
-  static bool _nearPolyline(List<Vec> pts, double x, double y, double r) {
-    if (pts.length < 2) return false;
-    var i = math.max(0, lowerBound<Vec>(pts, x - r, (p) => p.x) - 1);
-    for (; i < pts.length - 1; i++) {
-      final a = pts[i], b = pts[i + 1];
-      if (a.x > x + r) break;
-      if (distanceToSegment(x, y, a, b) < r) return true;
     }
     return false;
   }
