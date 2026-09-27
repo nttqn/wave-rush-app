@@ -33,7 +33,7 @@ as build artifacts. Secrets:
 - `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`: release signing. These are optional;
   without them the build is debug-signed.
 
-The AdMob App ID is real. Before publishing, replace the **test** ad unit IDs in `lib/services/ads_service.dart` with real ones.
+AdMob is fully wired for Android: the real App ID is in the workflow, and the real banner and interstitial unit IDs are in `lib/services/ads_service.dart`. iOS still uses test units.
 
 ## Regenerating audio
 ```

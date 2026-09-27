@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// AdMob banner + interstitial. Currently on Google's public TEST ad unit
-/// IDs — swap in real unit IDs from the AdMob console before publishing
-/// (and set the ADMOB_APP_ID GitHub secret, see README.md).
+/// AdMob banner + interstitial. Android uses Wave Rush's real ad units (the
+/// real App ID is set in the CI workflow); iOS stays on Google's test units
+/// until an iOS AdMob app exists.
 ///
 /// `google_mobile_ads` only supports Android/iOS, so everything here is a
 /// no-op on web — keeps `flutter run -d chrome` usable for previewing.
@@ -11,13 +11,15 @@ class AdsService {
   AdsService._();
   static final AdsService instance = AdsService._();
 
+  /// Android: Wave Rush's real banner unit. iOS: still Google's test unit
+  /// (no iOS AdMob app yet).
   static String get bannerAdUnitId => defaultTargetPlatform == TargetPlatform.iOS
       ? 'ca-app-pub-3940256099942544/2934735716'
-      : 'ca-app-pub-3940256099942544/6300978111';
+      : 'ca-app-pub-9078637596840810/5113933677';
 
   static String get interstitialAdUnitId => defaultTargetPlatform == TargetPlatform.iOS
       ? 'ca-app-pub-3940256099942544/4411468910'
-      : 'ca-app-pub-3940256099942544/1033173712';
+      : 'ca-app-pub-9078637596840810/5448975592';
 
   InterstitialAd? _interstitialAd;
   int _eventsSinceInterstitial = 0;
