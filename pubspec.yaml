@@ -29,9 +29,7 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/icon/icon.png"
-  # Adaptive icon (Android 8+): launchers show only the middle ~2/3 and crop
-  # it to their own shape, so the artwork fills that area (its own frame
-  # falls outside; the launcher supplies the shape). Navy shows at the edges.
-  adaptive_icon_background: "#050A1F"
-  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  # Plain (non-adaptive) icon, artwork cropped edge to edge like the
+  # WordHunt icon: adaptive icons rendered small with a margin on the
+  # owner's Xiaomi launcher.
   min_sdk_android: 24
