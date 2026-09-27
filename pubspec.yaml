@@ -29,4 +29,8 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/icon/icon.png"
+  # Adaptive icon (Android 8+): artwork shrunk into the mask-safe area on
+  # the game's navy, so circle/squircle launcher masks never crop the frame.
+  adaptive_icon_background: "#050A1F"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
   min_sdk_android: 24
