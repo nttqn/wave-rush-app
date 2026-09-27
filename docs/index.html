@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave Rush — hold to rise, release to fall</title>
+<meta name="description" content="Wave Rush: steer a neon arrow through zig-zag tunnels, spike caves and saw fields. 12 levels, endless mode and a level editor.">
+<link rel="icon" href="img/icon.png">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    margin: 0;
+    color: #e8f1ff;
+    background: #050a1f;
+  }
+  header {
+    background: radial-gradient(ellipse at top, #0e2a6b 0%, #050a1f 70%);
+    text-align: center;
+    padding: 56px 20px 44px;
+  }
+  .badge {
+    width: 112px;
+    height: 112px;
+    border-radius: 26px;
+    box-shadow: 0 0 36px rgba(63, 224, 255, 0.45);
+    margin: 0 auto 20px;
+    display: block;
+  }
+  h1 {
+    font-size: 40px;
+    font-style: italic;
+    letter-spacing: 3px;
+    margin: 0 0 10px;
+    color: #fff;
+    text-shadow: 0 0 18px #3fe0ff, 0 0 4px #3fe0ff;
+  }
+  .tagline { font-size: 17px; color: #b9cdf5; max-width: 520px; margin: 0 auto; line-height: 1.5; }
+  .stores { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
+  .store-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 2px solid #3fe0ff;
+    color: #3fe0ff;
+    text-decoration: none;
+    padding: 12px 22px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .store-btn.disabled { border-color: rgba(255, 255, 255, 0.3); color: rgba(255, 255, 255, 0.6); pointer-events: none; }
+  main { max-width: 960px; margin: 0 auto; padding: 40px 16px 72px; }
+  .shots { display: grid; gap: 18px; margin-bottom: 56px; }
+  figure { margin: 0; }
+  .shots img {
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid rgba(63, 169, 255, 0.35);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+    display: block;
+  }
+  .shots figcaption { color: #8fa6d6; font-size: 14px; text-align: center; margin-top: 8px; }
+  h2 { font-size: 24px; text-align: center; margin-bottom: 28px; }
+  .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  @media (max-width: 600px) { .features { grid-template-columns: 1fr; } }
+  .feature {
+    background: #0a1230;
+    border: 1px solid rgba(63, 169, 255, 0.3);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .feature h3 { margin: 0 0 8px; font-size: 17px; color: #3fe0ff; }
+  .feature p { margin: 0; color: #b9cdf5; font-size: 14px; line-height: 1.55; }
+  footer { text-align: center; padding: 28px 20px 48px; color: #8fa6d6; font-size: 14px; }
+  footer a { color: #3fe0ff; }
+</style>
+</head>
+<body>
+
+<header>
+  <img class="badge" src="img/icon.png" alt="Wave Rush icon">
+  <h1>WAVE RUSH</h1>
+  <p class="tagline">Hold to rise, release to fall. Steer a neon arrow through zig-zag
+  tunnels, spike caves and spinning saws, and keep going until you reach 100%.</p>
+  <div class="stores">
+    <a class="store-btn disabled" href="#" aria-disabled="true">Coming soon on Google Play</a>
+  </div>
+</header>
+
+<main>
+  <div class="shots">
+    <figure>
+      <img src="img/gameplay.jpg" alt="Wave Rush gameplay: a glowing arrow leaving a zig-zag tunnel toward a room of spikes">
+      <figcaption>One touch: hold to rise, release to fall.</figcaption>
+    </figure>
+    <figure>
+      <img src="img/editor.jpg" alt="Wave Rush level editor with walls, spikes, a saw and a speed portal placed on a grid">
+      <figcaption>Build your own stages in the level editor.</figcaption>
+    </figure>
+    <figure>
+      <img src="img/home.jpg" alt="Wave Rush home screen with Play, Endless, Skins and Create buttons">
+      <figcaption>Levels, Endless mode, skins and more.</figcaption>
+    </figure>
+  </div>
+
+  <h2>How it plays</h2>
+  <div class="features">
+    <div class="feature">
+      <h3>One-touch control</h3>
+      <p>Hold anywhere to fly up at 45°, release to dive. Floors and ceilings are safe to slide
+      along. Only spikes, saws and the side of a wall will crash you.</p>
+    </div>
+    <div class="feature">
+      <h3>12 levels + Endless</h3>
+      <p>From Easy to Insane, with speed and mini portals. Endless mode builds a new course every
+      run and gets harder the farther you fly.</p>
+    </div>
+    <div class="feature">
+      <h3>Level editor</h3>
+      <p>Place walls, spikes, saws and portals. Test-play your level, prove it's beatable with one
+      tap, then share it with friends as a level code.</p>
+    </div>
+    <div class="feature">
+      <h3>Instant retries</h3>
+      <p>Crash and you're flying again in under a second, with an attempt counter, best % per level
+      and wave skins to unlock.</p>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <a href="support.html">Support</a> · <a href="privacy.html">Privacy Policy</a>
+</footer>
+
+</body>
+</html>
