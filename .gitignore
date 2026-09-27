@@ -69,3 +69,6 @@ key.properties
 .flutter-plugins
 .metadata
 pubspec.lock
+
+# Owner-supplied source audio; the copies actually used live in assets/audio/.
+sound_src/

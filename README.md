@@ -2,8 +2,8 @@
 
 Hold to rise, release to fall. You steer a neon arrow through zig-zag tunnels, spike caves and saw fields.
 Built with Flutter. Android first, landscape only. The idea comes from "wave dash" style games, but all
-code, art and music here are original: the graphics are drawn in code, and `tool/gen_audio.js` synthesizes
-the music and sound effects.
+code and art here are original, and the graphics are drawn in code. Music and most sound effects are files supplied by
+the project owner; `tool/gen_audio.js` synthesizes the portal sound.
 
 ## Features
 - 12 levels, from Easy to Insane. Each level's geometry is generated from a fixed seed, so it is the same on every device.
@@ -15,7 +15,7 @@ the music and sound effects.
 - Endless mode. Difficulty goes up with distance, and every run is a new random course.
 - 8 wave skins, unlocked by beating levels.
 - **Level editor** (CREATE): tap to place floor/ceiling points, spikes, saws and portals, and drag to scroll. It has undo and per-level settings (length, speed, colours, music). Test-play any time. **Verify** runs the solver: it either proves the level is beatable or marks the spot where no timing gets through with a red line. Beating your own level in a test run also verifies it. Verified levels can be shared as a text code (`WAVE1:…`, copied to the clipboard), and friends can import that code.
-- 3 synthesized music loops that restart with every attempt, plus sound effects. Music and SFX have separate toggles.
+- Menu music, 6 in-game tracks (one picked at random per run and restarted with every attempt), a win jingle, and crash, click and back sound effects. Music and SFX have separate toggles.
 - AdMob banner on the menus only, never during play. Interstitials only at natural breaks.
 - The Android back button pauses during play. It never quits in the middle of an attempt.
 

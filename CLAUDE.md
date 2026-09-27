@@ -23,8 +23,7 @@ in this series). Package `com.trungsmail.wave_rush`.
 - Home screen background is an endless run flown by an autopilot following `LevelBuilder.safePathYAt`.
 
 ## Audio
-`tool/gen_audio.js` (Node) synthesizes everything in `assets/audio/`. There are no third-party sounds.
-`SoundService.init()` must stay unawaited in `main()`.
+The owner supplied these files, which are copied from `sound_src/` (gitignored) into `assets/audio/`. `m_title.mp3` loops on every menu. On entering a run, `GameScreen` picks one of `m_ig1..6.mp3` at random and restarts it with every attempt. `m_win.mp3` plays once as an effect on a clear. The other effects: `sfx_explosive.wav` on death, `sfx_menu_confirm.wav` on button taps, and `sfx_menu_back.wav` on back and resume. `BackSoundObserver` plays the back sound on every page-route pop, so buttons that pop pass `sound: null`. `GameScreen._alive` stops an outgoing screen (after NEXT) from switching to menu music under the incoming one. Only `sfx_portal.wav` is synthesized, by `tool/gen_audio.js`. The earlier generated WAVs had a broken header (no `data` chunk id); this is fixed now. `SoundService.init()` must stay unawaited in `main()`.
 
 ## Verification done
 `flutter analyze` is clean, and all tests pass (12 levels + 3 endless seeds solved to 2500m, plus engine

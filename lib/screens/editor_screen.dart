@@ -253,17 +253,6 @@ class _EditorScreenState extends State<EditorScreen> {
                           ),
                         ),
                     ]),
-                    const SizedBox(height: 12),
-                    const Text('Music', style: TextStyle(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 6),
-                    Wrap(spacing: 8, children: [
-                      for (var i = 0; i < 3; i++)
-                        ChoiceChip(
-                          label: Text('Track ${i + 1}'),
-                          selected: _level.music == i,
-                          onSelected: (_) => apply(() => _level.music = i),
-                        ),
-                    ]),
                   ],
                 ),
               ),
@@ -463,7 +452,7 @@ class _EditorScreenState extends State<EditorScreen> {
       child: Row(
         children: [
           const SizedBox(width: 6),
-          NeonIconButton(icon: Icons.arrow_back, size: 40, color: palette.wallLine, onPressed: _leave),
+          NeonIconButton(icon: Icons.arrow_back, sound: null, size: 40, color: palette.wallLine, onPressed: _leave),
           const SizedBox(width: 8),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 130),

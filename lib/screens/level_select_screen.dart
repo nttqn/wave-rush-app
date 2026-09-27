@@ -50,7 +50,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: Row(
                 children: [
-                  NeonIconButton(icon: Icons.arrow_back, onPressed: () => Navigator.of(context).pop()),
+                  NeonIconButton(icon: Icons.arrow_back, sound: null, onPressed: () => Navigator.of(context).pop()),
                   const Expanded(child: NeonTitle('SELECT LEVEL', size: 30)),
                   const SizedBox(width: 46),
                 ],

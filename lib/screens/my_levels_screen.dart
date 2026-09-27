@@ -139,7 +139,7 @@ class _MyLevelsScreenState extends State<MyLevelsScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: Row(
                 children: [
-                  NeonIconButton(icon: Icons.arrow_back, onPressed: () => Navigator.of(context).pop()),
+                  NeonIconButton(icon: Icons.arrow_back, sound: null, onPressed: () => Navigator.of(context).pop()),
                   const Expanded(child: NeonTitle('MY LEVELS', size: 30, color: Color(0xFF4DFF9A))),
                   NeonButton(
                     label: 'IMPORT',

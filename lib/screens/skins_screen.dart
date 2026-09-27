@@ -25,7 +25,7 @@ class _SkinsScreenState extends State<SkinsScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: Row(
                 children: [
-                  NeonIconButton(icon: Icons.arrow_back, onPressed: () => Navigator.of(context).pop()),
+                  NeonIconButton(icon: Icons.arrow_back, sound: null, onPressed: () => Navigator.of(context).pop()),
                   const Expanded(child: NeonTitle('SKINS', size: 30, color: Color(0xFFFFD23F))),
                   const SizedBox(width: 46),
                 ],

@@ -9,6 +9,7 @@ import '../game/levels.dart';
 import '../game/wave_engine.dart';
 import '../services/ads_service.dart';
 import '../services/progress_service.dart';
+import '../services/sound_service.dart';
 import '../ui/game_painter.dart';
 import '../ui/neon_widgets.dart';
 import '../ui/palettes.dart';
@@ -36,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    SoundService.instance.playMenuMusic();
     _newDemo();
     _ticker = createTicker(_onTick)..start();
     _banner = AdsService.instance.createBannerAd(onLoaded: () {

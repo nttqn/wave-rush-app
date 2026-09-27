@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'screens/home_screen.dart';
 import 'services/ads_service.dart';
+import 'services/back_sound_observer.dart';
 import 'services/progress_service.dart';
 import 'services/sound_service.dart';
 
@@ -37,6 +38,7 @@ class WaveRushApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF050A1F),
       ),
+      navigatorObservers: [BackSoundObserver()],
       home: const HomeScreen(),
     );
   }

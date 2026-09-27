@@ -15,7 +15,9 @@ import '../ui/game_painter.dart';
 import '../ui/neon_widgets.dart';
 import '../ui/palettes.dart';
 
-const _trackBpm = [128.0, 140.0, 150.0];
+/// Beat the background pulses to (the supplied mp3 tracks have no tempo
+/// metadata, so this is a steady generic pulse rather than a synced one).
+const _pulseBpm = 128.0;
 
 /// Plays a built-in [level], a player-made [custom] level, or endless mode
 /// when both are null. [testPlay] is the editor's "try it" run: no ads, no
@@ -44,13 +46,21 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   bool get _endless => widget.level == null && widget.custom == null;
   String get _title => widget.level?.name ?? widget.custom?.name ?? 'ENDLESS';
-  late final int _track = widget.level?.music ?? widget.custom?.music ?? math.Random().nextInt(SoundService.musicFiles.length);
+  /// One random in-game track per visit, restarted with every attempt.
+  late final String _track = SoundService.instance.pickGameTrack();
+
+  /// GameScreens alive right now: "NEXT" replaces one with another, and the
+  /// outgoing one must not switch to menu music under the incoming one.
+  static int _alive = 0;
   late final LevelPalette _palette =
       kPalettes[widget.level?.palette ?? widget.custom?.palette ?? math.Random().nextInt(kPalettes.length)];
 
   @override
   void initState() {
     super.initState();
+    _alive++;
+    // Silence until the first touch starts the run and its track.
+    SoundService.instance.stopMusic();
     WidgetsBinding.instance.addObserver(this);
     _engine = _createEngine();
     _ticker = createTicker(_onTick)..start();
@@ -72,7 +82,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       ..onDeath = _onDeath
       ..onWin = _onWin
       ..onRestart = () {
-        SoundService.instance.startMusic(_track);
+        SoundService.instance.startGameMusic(_track);
       }
       ..onPortal = (_) {
         SoundService.instance.play(SoundEffect.portal);
@@ -124,7 +134,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     final wasReady = _engine.state == RunState.ready;
     _engine.setHolding(holding);
     if (wasReady && _engine.state == RunState.playing) {
-      SoundService.instance.startMusic(_track);
+      SoundService.instance.startGameMusic(_track);
       setState(() {});
     }
   }
@@ -143,7 +153,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     _focus.dispose();
-    SoundService.instance.stopMusic();
+    if (--_alive == 0) SoundService.instance.playMenuMusic();
     super.dispose();
   }
 
@@ -211,8 +221,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     if (_engine.state == RunState.won || (_endless && _engine.state == RunState.dead)) {
       _exit();
     } else if (_paused) {
+      SoundService.instance.play(SoundEffect.back);
       _resume();
     } else {
+      SoundService.instance.play(SoundEffect.back);
       _pause();
     }
   }
@@ -267,7 +279,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     engine: _engine,
                     palette: _palette,
                     skin: skin,
-                    bpm: _trackBpm[_track],
+                    bpm: _pulseBpm,
                     repaint: _frame,
                   ),
                 ),
@@ -419,11 +431,19 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         runSpacing: 12,
         alignment: WrapAlignment.center,
         children: [
-          NeonButton(label: 'RESUME', icon: Icons.play_arrow_rounded, filled: true, width: 180, onPressed: _resume),
+          NeonButton(
+            label: 'RESUME',
+            icon: Icons.play_arrow_rounded,
+            filled: true,
+            width: 180,
+            sound: SoundEffect.back,
+            onPressed: _resume,
+          ),
           NeonButton(label: 'RESTART', icon: Icons.replay, width: 180, onPressed: _restart),
           NeonButton(
             label: widget.testPlay ? 'EDITOR' : 'MENU',
             icon: widget.testPlay ? Icons.edit : Icons.home_rounded,
+            sound: null,
             color: const Color(0xFFFF5CF0),
             width: 180,
             onPressed: _exit,
@@ -454,6 +474,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           NeonButton(
             label: widget.testPlay ? 'EDITOR' : 'MENU',
             icon: widget.testPlay ? Icons.edit : Icons.home_rounded,
+            sound: null,
             width: 170,
             onPressed: _exit,
           ),
@@ -486,7 +507,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         runSpacing: 12,
         alignment: WrapAlignment.center,
         children: [
-          NeonButton(label: 'MENU', icon: Icons.home_rounded, width: 170, onPressed: _exit),
+          NeonButton(label: 'MENU', icon: Icons.home_rounded, width: 170, sound: null, onPressed: _exit),
           NeonButton(
             label: 'RETRY',
             icon: Icons.replay,

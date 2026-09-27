@@ -11,6 +11,10 @@ class NeonButton extends StatelessWidget {
   final double width;
   final bool filled;
 
+  /// Played on tap; null for buttons that navigate back (the app-wide
+  /// [BackSoundObserver] plays the back sound on the pop itself).
+  final SoundEffect? sound;
+
   const NeonButton({
     super.key,
     required this.label,
@@ -19,6 +23,7 @@ class NeonButton extends StatelessWidget {
     this.color = const Color(0xFF3FE0FF),
     this.width = 220,
     this.filled = false,
+    this.sound = SoundEffect.click,
   });
 
   @override
@@ -40,7 +45,7 @@ class NeonButton extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: () {
-              SoundService.instance.play(SoundEffect.click);
+              if (sound != null) SoundService.instance.play(sound!);
               onPressed();
             },
             // Scales the label down instead of overflowing when a narrow
@@ -82,6 +87,7 @@ class NeonIconButton extends StatelessWidget {
   final VoidCallback onPressed;
   final Color color;
   final double size;
+  final SoundEffect? sound;
 
   const NeonIconButton({
     super.key,
@@ -89,6 +95,7 @@ class NeonIconButton extends StatelessWidget {
     required this.onPressed,
     this.color = const Color(0xFF3FE0FF),
     this.size = 46,
+    this.sound = SoundEffect.click,
   });
 
   @override
@@ -102,7 +109,7 @@ class NeonIconButton extends StatelessWidget {
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: () {
-            SoundService.instance.play(SoundEffect.click);
+            if (sound != null) SoundService.instance.play(sound!);
             onPressed();
           },
           child: Icon(icon, color: color, size: size * 0.5),
