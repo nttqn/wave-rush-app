@@ -29,11 +29,11 @@ flutter test
 ## CI build (GitHub Actions)
 `android/` and `web/` are not committed. CI regenerates them. Each push to `main` produces the APK and AAB
 as build artifacts. Secrets:
-- `ADMOB_APP_ID`: the real AdMob App ID. Without it, the build uses Google's test ID.
+- `ADMOB_APP_ID` (optional): overrides the real AdMob App ID, which is already set in the workflow.
 - `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`: release signing. These are optional;
   without them the build is debug-signed.
 
-Before publishing, replace the **test** ad unit IDs in `lib/services/ads_service.dart` with real ones.
+The AdMob App ID is real. Before publishing, replace the **test** ad unit IDs in `lib/services/ads_service.dart` with real ones.
 
 ## Regenerating audio
 ```
