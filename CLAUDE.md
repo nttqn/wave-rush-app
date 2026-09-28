@@ -45,3 +45,14 @@ Generator changes that follow from this:
 - Tunnels are entered through funnels (`_addFunnelledWall`, which slopes at the wave's own slope) instead of cliffs.
 - Tunnels get small wall spikes (`_placeWallSpikes`) so they stay challenging.
 - A test asserts that no inward-facing wall segment is steeper than `maxSlideSlope`.
+
+## iOS (added 2026-09-28)
+The `build-ios` job (macos-latest) was copied from WordHunt's validated pipeline (see the memory note on iOS CI signing): CocoaPods is forced over SPM, the google_mobile_ads module-map fix goes in both the Podfile and the xcconfigs, and manual signing settings are appended to `ios/Flutter/Release.xcconfig` only, never passed as xcodebuild CLI overrides. TestFlight upload is opt-in via the `upload_ios` workflow_dispatch checkbox.
+
+Wave Rush specifics:
+- The iOS bundle ID is `com.trungsmail.waveRush` (Flutter camel-cases the project name for iOS). The profile must be named exactly "Wave Rush App Store".
+- There is no Game Center, so no entitlements step.
+- Info.plist: landscape-only (`UISupportedInterfaceOrientations` + `~ipad`) and `UIRequiresFullScreen` (required for a landscape-only iPad app), display name "Wave Rush", and export compliance set to NO.
+- The icon comes from `flutter_launcher_icons_ios.yaml`, with `remove_alpha_ios` and a navy background.
+- The Distribution cert is the Team-wide one reused from WordHunt: serial `34F003B0FD8F704BC74E9FC597009DCB`, expiring 2027-09-08 04:50. Team `WGZYDZH4KR`. The API key `K5QF38DL8P` is Team-wide too. WordHunt once hit a profile created against a *different* same-named cert, so compare serials if a "profile doesn't include signing certificate" error appears.
+- Secrets: `IOS_DIST_P12_BASE64`, `IOS_DIST_P12_PASSWORD`, `IOS_PROVISIONING_PROFILE_BASE64`, `APPSTORE_TEAM_ID`, and for TestFlight `APPSTORE_API_KEY_ID`, `APPSTORE_API_ISSUER_ID`, `APPSTORE_API_KEY_P8`. `ADMOB_APP_ID_IOS` is optional; without it the job falls back to Google's iOS test App ID, and iOS ad units in `ads_service.dart` are still test units.

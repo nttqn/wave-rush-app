@@ -73,3 +73,5 @@ pubspec.lock
 # Owner-supplied source audio; the copies actually used live in assets/audio/.
 sound_src/
 keystore-base64.txt
+*.p8
+*-base64.txt

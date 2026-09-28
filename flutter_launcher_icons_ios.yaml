@@ -1,0 +1,11 @@
+# iOS-only launcher icon config, used by the build-ios CI job
+# (`dart run flutter_launcher_icons -f flutter_launcher_icons_ios.yaml`).
+# Kept separate from pubspec.yaml's Android-only config: one shared config
+# makes each CI job try to write icons for a platform it didn't generate.
+# iOS icons can't have transparency, so the icon's transparent corners are
+# filled with the game's navy (iOS applies its own rounded mask anyway).
+flutter_launcher_icons:
+  ios: true
+  remove_alpha_ios: true
+  background_color_ios: "#050A1F"
+  image_path: "assets/icon/icon.png"

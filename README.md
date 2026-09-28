@@ -27,8 +27,7 @@ flutter test
 ```
 
 ## CI build (GitHub Actions)
-`android/` and `web/` are not committed. CI regenerates them. Each push to `main` produces the APK and AAB
-as build artifacts. Secrets:
+`android/`, `ios/` and `web/` are not committed; CI regenerates them. Each push to `main` builds the Android APK/AAB, and an iOS build on a macOS runner (a signed `.ipa` once the Apple secrets are set, otherwise a compile check). Run the workflow manually with **upload_ios** ticked to send the `.ipa` to TestFlight. See CLAUDE.md for the iOS secrets. Secrets:
 - `ADMOB_APP_ID` (optional): overrides the real AdMob App ID, which is already set in the workflow.
 - `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`: release signing. These are optional;
   without them the build is debug-signed.

@@ -1,9 +1,14 @@
-name: Build Android
+name: Build Android + iOS
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      upload_ios:
+        description: "Also upload the signed iOS build to TestFlight/App Store Connect (needs the Apple secrets, see CLAUDE.md's iOS section)"
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -154,3 +159,248 @@ jobs:
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
 
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # Flutter 3.24+ defaults iOS plugin resolution to Swift Package
+      # Manager instead of CocoaPods. Each plugin becomes its own
+      # Package.swift target under SPM, and those targets can't have a
+      # provisioning profile at all — command-line CODE_SIGN_STYLE=Manual/
+      # PROVISIONING_PROFILE_SPECIFIER overrides apply project-wide (see the
+      # "Configure Runner-only signing settings" comment below), so they'd
+      # land on those targets too and Xcode would reject it. Forcing
+      # CocoaPods avoids the problem: plugins become Pods embedded into one
+      # aggregate framework that signs normally alongside Runner. This is a
+      # Flutter *tool* setting, not project-level, so it must be set fresh
+      # on every runner, before `flutter create`.
+      - name: Force CocoaPods instead of Swift Package Manager
+        run: flutter config --no-enable-swift-package-manager
+
+      # ios/ is gitignored and regenerated fresh every run, same reasoning
+      # as android/ above.
+      - name: Generate iOS platform project
+        run: flutter create --platforms=ios --org com.trungsmail --project-name wave_rush .
+
+      # Without this, the build fails with "Include of non-modular header
+      # inside framework module 'google_mobile_ads.FLTAd_Internal'" — a
+      # well-known, long-standing requirement for this SDK under CocoaPods,
+      # not specific to this project. Inserted into the Podfile's existing
+      # post_install target loop, right after the
+      # flutter_additional_ios_build_settings(target) call Flutter's own
+      # template already puts there.
+      - name: Patch Podfile (CocoaPods module map fix for google_mobile_ads)
+        run: |
+          set -e
+          perl -0777 -pi -e "s/(flutter_additional_ios_build_settings\(target\))/\$1\n    target.build_configurations.each do |config|\n      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'\n    end/" ios/Podfile
+          cat ios/Podfile
+
+      # The Podfile patch above sets this for every *pod* target, but the
+      # same "non-modular header" error persists without also setting it on
+      # the Runner *app* target's own build settings, which come from these
+      # two files (both just `#include "Generated.xcconfig"` by default).
+      - name: Patch Debug/Release.xcconfig (same module map fix, for the Runner target)
+        run: |
+          set -e
+          for f in ios/Flutter/Debug.xcconfig ios/Flutter/Release.xcconfig; do
+            echo 'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES' >> "$f"
+            cat "$f"
+          done
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Without an AdMob App ID, google_mobile_ads crashes on first launch
+      # the moment MobileAds.instance.initialize() runs (an NSException, not
+      # a silent failure). iOS has no AdMob app entry of its own in the
+      # user's AdMob account yet (only Android does — see
+      # lib/services/ads_service.dart), so this always falls back to
+      # Google's public iOS TEST App ID for now. A real ADMOB_APP_ID_IOS
+      # secret can replace it once an iOS app is created in the AdMob
+      # console. Also sets CFBundleDisplayName (the Android job's
+      # equivalent is the android:label patch above) and
+      # ITSAppUsesNonExemptEncryption=NO, which skips App Store Connect's
+      # per-upload "Export Compliance" prompt — correct here since the app
+      # only makes standard HTTPS calls via AdMob, no custom
+      # encryption.
+      - name: Patch Info.plist (AdMob App ID + display name + landscape + export compliance)
+        env:
+          ADMOB_APP_ID_IOS: ${{ secrets.ADMOB_APP_ID_IOS }}
+        run: |
+          set -e
+          APP_ID="${ADMOB_APP_ID_IOS:-ca-app-pub-3940256099942544~1458002511}"
+          if [ -z "${ADMOB_APP_ID_IOS}" ]; then
+            echo "::warning::ADMOB_APP_ID_IOS secret not set — using Google's public iOS TEST AdMob App ID. Ads will show as test ads only until a real iOS AdMob app entry exists."
+          fi
+          plutil -replace GADApplicationIdentifier -string "$APP_ID" ios/Runner/Info.plist
+          plutil -replace CFBundleDisplayName -string "Wave Rush" ios/Runner/Info.plist
+          # Landscape-only game (Dart also locks it via SystemChrome). iPad
+          # needs UIRequiresFullScreen for a landscape-only app to pass App
+          # Store validation, since it opts out of Split View multitasking.
+          LANDSCAPE='["UIInterfaceOrientationLandscapeLeft","UIInterfaceOrientationLandscapeRight"]'
+          plutil -replace UISupportedInterfaceOrientations -json "$LANDSCAPE" ios/Runner/Info.plist
+          plutil -replace "UISupportedInterfaceOrientations~ipad" -json "$LANDSCAPE" ios/Runner/Info.plist
+          plutil -replace UIRequiresFullScreen -bool YES ios/Runner/Info.plist
+          plutil -replace ITSAppUsesNonExemptEncryption -bool NO ios/Runner/Info.plist
+          plutil -p ios/Runner/Info.plist
+
+      # A separate flutter_launcher_icons_ios.yaml config (not pubspec.yaml's
+      # main one, which stays android-only) — sharing one config would make
+      # flutter_launcher_icons try to write iOS icons into the Android job's
+      # run (no ios/ generated there) and vice versa, breaking both.
+      - name: Generate launcher icon
+        run: dart run flutter_launcher_icons -f flutter_launcher_icons_ios.yaml
+
+      # Automatic signing (-allowProvisioningUpdates + an API key) does not
+      # work in headless CI with no device/interactive Xcode session — it
+      # can't reliably resolve a Distribution (vs. Development) signing
+      # context. Manual signing with a real Distribution certificate + App
+      # Store provisioning profile is the documented pattern for exactly
+      # this case. No Mac means no Keychain Access, so the certificate was
+      # created without one: a CSR generated locally with `openssl req`,
+      # uploaded to the Apple Developer portal to get a .cer back, combined
+      # with the original private key into a .p12. Apple Distribution certs
+      # are Team-wide, not per-app, so this reuses the same .p12 as the
+      # WordHunt app (see CLAUDE.md's iOS section); only the provisioning
+      # profile is specific to Wave Rush.
+      - name: Import signing certificate
+        id: ios_signing
+        env:
+          IOS_DIST_P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          IOS_DIST_P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -e
+          if [ -z "$IOS_DIST_P12_BASE64" ] || [ -z "$IOS_PROVISIONING_PROFILE_BASE64" ]; then
+            echo "::warning::IOS_DIST_P12_BASE64/IOS_PROVISIONING_PROFILE_BASE64 not set — building unsigned (compile check only), no .ipa will be produced. See CLAUDE.md's iOS section."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$IOS_DIST_P12_BASE64" | base64 -d > ios_distribution.p12
+          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 -d > ios_profile.mobileprovision
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      # apple-actions/import-codesign-certs handles the temporary-keychain
+      # dance (create, unlock, set as default search list, clean up after
+      # the job) that would otherwise be several fiddly `security` CLI
+      # calls.
+      - name: Install certificate into a temporary keychain
+        if: steps.ios_signing.outputs.configured == 'true'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          p12-password: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+
+      # Xcode looks for provisioning profiles in this exact directory.
+      - name: Install provisioning profile
+        if: steps.ios_signing.outputs.configured == 'true'
+        run: |
+          set -e
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp ios_profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      # Always runs: resolves CocoaPods and compiles the Flutter side.
+      # Signing happens after, in the archive step, not here.
+      - name: Build iOS (compile + resolve pods)
+        run: flutter build ios --release --no-codesign
+
+      # Passing DEVELOPMENT_TEAM/CODE_SIGN_STYLE/CODE_SIGN_IDENTITY/
+      # PROVISIONING_PROFILE_SPECIFIER as xcodebuild *command-line*
+      # overrides applies them to *every* target xcodebuild touches, not
+      # just Runner — every CocoaPods pod target (google_mobile_ads,
+      # audioplayers_darwin, games_services, Pods-Runner, ...) would fail
+      # with "does not support provisioning profiles" if they were passed
+      # that way. ios/Flutter/Release.xcconfig is included only by the
+      # *Runner* target's own Release configuration — CocoaPods' own
+      # generated xcconfig files for its pod targets never reference it —
+      # so putting the signing settings there instead scopes them to Runner
+      # alone, the same trick already used for the module-map fix above.
+      - name: Configure Runner-only signing settings
+        if: steps.ios_signing.outputs.configured == 'true'
+        env:
+          APPSTORE_TEAM_ID: ${{ secrets.APPSTORE_TEAM_ID }}
+        run: |
+          set -e
+          {
+            echo "DEVELOPMENT_TEAM = ${APPSTORE_TEAM_ID}"
+            echo "CODE_SIGN_STYLE = Manual"
+            echo "CODE_SIGN_IDENTITY = Apple Distribution"
+            echo "PROVISIONING_PROFILE_SPECIFIER = Wave Rush App Store"
+          } >> ios/Flutter/Release.xcconfig
+          cat ios/Flutter/Release.xcconfig
+
+      - name: Archive and export signed IPA
+        if: steps.ios_signing.outputs.configured == 'true'
+        env:
+          APPSTORE_TEAM_ID: ${{ secrets.APPSTORE_TEAM_ID }}
+        run: |
+          set -e
+          cat > ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${APPSTORE_TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.trungsmail.waveRush</key>
+              <string>Wave Rush App Store</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            archive
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Upload IPA artifact
+        if: steps.ios_signing.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave-rush-release-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 30
+
+      # Only runs on a manual "Run workflow" trigger with the checkbox
+      # ticked — never on a plain push to main, same reasoning as the
+      # Android job never auto-uploading the .aab to Play Console. Needs 3
+      # more secrets (APPSTORE_API_KEY_ID/_API_ISSUER_ID/_API_KEY_P8, an App
+      # Store Connect API key) not required just to produce a signed .ipa —
+      # not yet set for this project. `xcrun altool` runs inside CI itself
+      # since there's no Mac to run Transporter locally.
+      - name: Upload to TestFlight
+        if: steps.ios_signing.outputs.configured == 'true' && github.event_name == 'workflow_dispatch' && inputs.upload_ios == true
+        env:
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPSTORE_API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          APPSTORE_API_KEY_P8: ${{ secrets.APPSTORE_API_KEY_P8 }}
+        run: |
+          set -e
+          mkdir -p ~/private_keys
+          echo "$APPSTORE_API_KEY_P8" | base64 -d > ~/private_keys/AuthKey_${APPSTORE_API_KEY_ID}.p8
+          xcrun altool --upload-app \
+            -f build/ios/ipa/*.ipa \
+            -t ios \
+            --apiKey "$APPSTORE_API_KEY_ID" \
+            --apiIssuer "$APPSTORE_API_ISSUER_ID"
