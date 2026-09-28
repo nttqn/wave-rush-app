@@ -75,3 +75,6 @@ sound_src/
 keystore-base64.txt
 *.p8
 *-base64.txt
+
+# Promo videos are large binaries; rebuild with tool/promo/ instead of committing them.
+store/promo/*.mp4
