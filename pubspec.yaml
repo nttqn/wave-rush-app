@@ -1,7 +1,7 @@
 name: wave_rush
 description: "Wave Rush - hold to rise, release to fall: steer a neon arrow through spikes, saws and zig-zag tunnels."
 publish_to: 'none'
-version: 1.0.0+2
+version: 1.0.1+2
 
 environment:
   sdk: ^3.12.2
