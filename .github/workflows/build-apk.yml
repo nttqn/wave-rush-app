@@ -250,6 +250,9 @@ jobs:
           plutil -replace "UISupportedInterfaceOrientations~ipad" -json "$LANDSCAPE" ios/Runner/Info.plist
           plutil -replace UIRequiresFullScreen -bool YES ios/Runner/Info.plist
           plutil -replace ITSAppUsesNonExemptEncryption -bool NO ios/Runner/Info.plist
+          # Google's own SKAdNetwork ID, required by the Google Mobile Ads
+          # SDK for iOS ad attribution (no mediation partners, so no others).
+          plutil -replace SKAdNetworkItems -json '[{"SKAdNetworkIdentifier":"cstr6suwn9.skadnetwork"}]' ios/Runner/Info.plist
           plutil -p ios/Runner/Info.plist
 
       # A separate flutter_launcher_icons_ios.yaml config (not pubspec.yaml's

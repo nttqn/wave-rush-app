@@ -32,7 +32,7 @@ flutter test
 - `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`: release signing. These are optional;
   without them the build is debug-signed.
 
-AdMob is fully wired for Android: the real App ID is in the workflow, and the real banner and interstitial unit IDs are in `lib/services/ads_service.dart`. iOS still uses test units.
+AdMob uses real IDs on both platforms. The Android App ID is in the workflow, the iOS App ID is in the `ADMOB_APP_ID_IOS` secret, and the real banner and interstitial unit IDs for both are in `lib/services/ads_service.dart`.
 
 ## Regenerating audio
 ```
