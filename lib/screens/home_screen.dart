@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../game/daily.dart';
 import '../game/level_generator.dart';
 import '../game/levels.dart';
 import '../game/wave_engine.dart';
@@ -128,35 +129,49 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                 label: 'PLAY',
                                 icon: Icons.play_arrow_rounded,
                                 filled: true,
-                                width: 180,
+                                width: 150,
                                 onPressed: () => _open(const LevelSelectScreen()),
+                              ),
+                              NeonButton(
+                                label: 'DAILY',
+                                icon: Icons.today_rounded,
+                                color: const Color(0xFFFFB13F),
+                                width: 150,
+                                onPressed: () {
+                                  final day = DailyChallenge.today();
+                                  _open(GameScreen(level: day.def, dailyKey: day.key));
+                                },
                               ),
                               NeonButton(
                                 label: 'ENDLESS',
                                 icon: Icons.all_inclusive,
                                 color: const Color(0xFFFF5CF0),
-                                width: 180,
+                                width: 150,
                                 onPressed: () => _open(const GameScreen(level: null)),
                               ),
                               NeonButton(
                                 label: 'SKINS',
                                 icon: Icons.palette_outlined,
                                 color: const Color(0xFFFFD23F),
-                                width: 180,
+                                width: 150,
                                 onPressed: () => _open(const SkinsScreen()),
                               ),
                               NeonButton(
                                 label: 'CREATE',
                                 icon: Icons.construction_rounded,
                                 color: const Color(0xFF4DFF9A),
-                                width: 180,
+                                width: 150,
                                 onPressed: () => _open(const MyLevelsScreen()),
                               ),
                             ],
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'Levels ${progress.completedCount}/${kLevels.length}   ·   Endless best ${progress.endlessBest}m',
+                            [
+                              'Levels ${progress.completedCount}/${kLevels.length}',
+                              if (progress.dailyStreak > 0) 'Daily streak ${progress.dailyStreak}',
+                              'Endless best ${progress.endlessBest}m',
+                            ].join('   ·   '),
                             style: const TextStyle(color: Colors.white60, fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 10),

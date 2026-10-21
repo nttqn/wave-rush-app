@@ -18,6 +18,14 @@ class GamePainter extends CustomPainter {
   /// following the wave, and no wave drawn.
   final double? cameraLeft;
 
+  /// Replay of the player's best attempt, drawn faint behind the wave.
+  final WaveEngine? ghost;
+
+  /// Safe path to draw as a hint between [hintFrom] and [hintTo] (world x).
+  final List<Vec>? hintPath;
+  final double hintFrom;
+  final double hintTo;
+
   /// Where on screen (fraction of width) the wave sits horizontally.
   static const double playerScreenX = 0.3;
 
@@ -28,6 +36,10 @@ class GamePainter extends CustomPainter {
     required this.bpm,
     required Listenable repaint,
     this.cameraLeft,
+    this.ghost,
+    this.hintPath,
+    this.hintFrom = 0,
+    this.hintTo = 0,
   }) : super(repaint: repaint);
 
   @override
@@ -53,6 +65,8 @@ class GamePainter extends CustomPainter {
     _drawWalls(canvas, x0, x1, pulse);
     _drawHazards(canvas, x0, x1);
     if (cameraLeft == null) {
+      _drawHint(canvas, x0, x1);
+      _drawGhost(canvas);
       _drawTrail(canvas, x0);
       _drawTwinTrail(canvas);
       if (engine.state != RunState.dead) _drawWave(canvas);
@@ -402,6 +416,58 @@ class GamePainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// The best attempt's replay: a faint arrow with a short trail.
+  void _drawGhost(Canvas canvas) {
+    final g = ghost;
+    if (g == null || g.state != RunState.playing) return;
+    final pts = g.trail.where((p) => p.x > g.x - 12).toList();
+    final path = Path()..moveTo(pts.isEmpty ? g.x : pts.first.x, pts.isEmpty ? g.y : pts.first.y);
+    for (final p in pts.skip(1)) {
+      path.lineTo(p.x, p.y);
+    }
+    path.lineTo(g.x, g.y);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.12
+        ..strokeJoin = StrokeJoin.miter
+        ..color = skin.trail.withValues(alpha: 0.22),
+    );
+    final k = g.mode.mini ? 0.62 : 1.0;
+    _drawArrow(canvas, Offset(g.x, g.y), g.heading, k, skin.body, 0.35);
+    if (g.mode.dual) {
+      _drawArrow(canvas, Offset(g.x, LevelData.worldHeight - g.y), -g.heading, k, Colors.white, 0.3);
+    }
+  }
+
+  /// Glowing dots along the safe path where the player keeps crashing.
+  void _drawHint(Canvas canvas, double x0, double x1) {
+    final path = hintPath;
+    if (path == null || hintTo <= hintFrom) return;
+    final from = math.max(hintFrom, x0), to = math.min(hintTo, x1);
+    if (to <= from) return;
+    final glow = Paint()
+      ..color = palette.accent.withValues(alpha: 0.35)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.12);
+    final dot = Paint()..color = Colors.white.withValues(alpha: 0.85);
+    // Snap dot positions to a fixed 0.4 grid so they don't crawl as the
+    // camera moves.
+    for (var x = (from / 0.4).ceil() * 0.4; x <= to; x += 0.4) {
+      final y = _pathY(path, x);
+      canvas.drawCircle(Offset(x, y), 0.16, glow);
+      canvas.drawCircle(Offset(x, y), 0.07, dot);
+    }
+  }
+
+  static double _pathY(List<Vec> path, double x) {
+    final i = LevelData.lowerBound<Vec>(path, x, (p) => p.x);
+    if (i <= 0) return path.first.y;
+    if (i >= path.length) return path.last.y;
+    final a = path[i - 1], b = path[i];
+    return a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x);
+  }
+
   /// The twin's trail: the real trail since the dual portal, mirrored.
   void _drawTwinTrail(Canvas canvas) {
     final since = engine.dualSinceX;
@@ -456,5 +522,11 @@ class GamePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant GamePainter old) =>
-      old.engine != engine || old.palette != palette || old.skin != skin || old.cameraLeft != cameraLeft;
+      old.engine != engine ||
+      old.palette != palette ||
+      old.skin != skin ||
+      old.cameraLeft != cameraLeft ||
+      old.ghost != ghost ||
+      old.hintFrom != hintFrom ||
+      old.hintTo != hintTo;
 }

@@ -5,10 +5,13 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../game/custom_level.dart';
+import '../game/ghost.dart';
+import '../game/level_data.dart';
 import '../game/levels.dart';
 import '../game/wave_engine.dart';
 import '../services/ads_service.dart';
 import '../services/custom_level_store.dart';
+import '../services/ghost_store.dart';
 import '../services/progress_service.dart';
 import '../services/sound_service.dart';
 import '../ui/game_painter.dart';
@@ -26,7 +29,12 @@ class GameScreen extends StatefulWidget {
   final LevelDef? level;
   final CustomLevel? custom;
   final bool testPlay;
-  const GameScreen({super.key, required this.level, this.custom, this.testPlay = false});
+
+  /// Set for the Daily Challenge (yyyymmdd): [level] is then that day's
+  /// generated level, and progress is saved as Daily, not as a level.
+  final String? dailyKey;
+
+  const GameScreen({super.key, required this.level, this.custom, this.testPlay = false, this.dailyKey});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -45,6 +53,35 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _newRecord = false;
 
   bool get _endless => widget.level == null && widget.custom == null;
+  bool get _daily => widget.dailyKey != null;
+
+  // ------------------------------------------------------- ghost + hints
+
+  /// Where this level's best attempt is stored; null when there's no
+  /// ghost (endless courses differ every run; editor test runs don't count).
+  String? get _ghostKey {
+    if (widget.testPlay || _endless) return null;
+    if (_daily) return 'D${widget.dailyKey}';
+    if (widget.custom != null) return 'C${widget.custom!.id}';
+    return 'L${widget.level!.id}';
+  }
+
+  GhostRecord? _bestGhost;
+  GhostRunner? _ghost;
+
+  /// Generator's safe path (built-in levels and Daily only).
+  List<Vec>? _safePath;
+
+  /// Where the player crashed this session, to spot a section they're stuck on.
+  final List<double> _deathXs = [];
+
+  /// Active hint: show the safe path over this x range until passed.
+  double? _hintFrom, _hintTo;
+
+  /// Seconds left to show the "hint" banner.
+  double _hintBanner = 0;
+
+  static const _hintAfterDeaths = 4;
   String get _title => widget.level?.name ?? widget.custom?.name ?? 'ENDLESS';
   /// One random in-game track per visit, restarted with every attempt.
   late final String _track = SoundService.instance.pickGameTrack();
@@ -64,6 +101,44 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     WidgetsBinding.instance.addObserver(this);
     _engine = _createEngine();
     _ticker = createTicker(_onTick)..start();
+    final key = _ghostKey;
+    if (key != null) {
+      GhostStore.instance.load(key).then((record) {
+        if (!mounted || record == null) return;
+        // A record from this session may already be better.
+        if (_bestGhost == null || record.beats(_bestGhost)) _bestGhost = record;
+        _resetGhost();
+        setState(() {});
+      });
+    }
+  }
+
+  void _resetGhost() {
+    final g = _bestGhost;
+    _ghost = g == null ? null : GhostRunner(_engine.level, g);
+    _ghost?.advanceTo(_engine.stepIndex);
+  }
+
+  /// Keeps the attempt that just ended if it beats the stored best.
+  void _maybeSaveGhost() {
+    final key = _ghostKey;
+    if (key == null) return;
+    final record = GhostRecord(progress: _engine.progress, steps: _engine.stepIndex, toggles: List.of(_engine.inputLog));
+    if (!record.beats(_bestGhost)) return;
+    _bestGhost = record;
+    GhostStore.instance.save(key, record);
+  }
+
+  /// Turns on a hint after several crashes around the same spot.
+  void _noteDeath(double x) {
+    if (_safePath == null || widget.testPlay) return;
+    final nearby = _deathXs.where((d) => (d - x).abs() < 2.5).length;
+    _deathXs.add(x);
+    if (nearby + 1 >= _hintAfterDeaths && _hintTo == null) {
+      _hintFrom = x - 7;
+      _hintTo = x + 3;
+      _hintBanner = 2.5;
+    }
   }
 
   WaveEngine _createEngine() {
@@ -76,13 +151,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       final builder = buildEndless(math.Random().nextInt(1 << 30));
       engine = WaveEngine(level: builder.level, endlessBuilder: builder);
     } else {
-      engine = WaveEngine(level: def.build());
+      final built = def.buildWithPath();
+      _safePath = built.safePath;
+      engine = WaveEngine(level: built.level);
     }
     engine
       ..onDeath = _onDeath
       ..onWin = _onWin
       ..onRestart = () {
         SoundService.instance.startGameMusic(_track);
+        _resetGhost();
       }
       ..onPortal = (_) {
         SoundService.instance.play(SoundEffect.portal);
@@ -98,6 +176,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       _newRecord = ProgressService.instance.recordEndless(_engine.distance);
     } else {
       _recordProgress(_engine.progress);
+      _maybeSaveGhost();
+      _noteDeath(_engine.x);
     }
   }
 
@@ -105,6 +185,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     SoundService.instance.stopMusic();
     SoundService.instance.play(SoundEffect.win);
     _recordProgress(1.0);
+    _maybeSaveGhost();
   }
 
   /// Saves the attempt's progress for built-in and player-made levels.
@@ -112,6 +193,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   void _recordProgress(double progress) {
     if (widget.testPlay) return;
     final def = widget.level, custom = widget.custom;
+    if (_daily) {
+      ProgressService.instance.recordDaily(widget.dailyKey!, progress);
+      return;
+    }
     if (def != null) ProgressService.instance.recordAttempt(def.id, progress);
     if (custom != null) CustomLevelStore.instance.recordProgress(custom.id, progress);
   }
@@ -122,6 +207,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     if (_paused) return;
     final before = _engine.state;
     _engine.update(dt);
+    _ghost?.advanceTo(_engine.stepIndex);
+    if (_hintBanner > 0) _hintBanner -= dt;
+    // Made it past the tricky bit: retire the hint and its crash history.
+    final hintTo = _hintTo;
+    if (hintTo != null && _engine.state == RunState.playing && _engine.x > hintTo + 1) {
+      _deathXs.removeWhere((d) => d >= _hintFrom! && d <= hintTo);
+      _hintFrom = _hintTo = null;
+    }
     // Overlays (win / endless game over) appear after a short beat.
     if (before != _engine.state || _engine.state == RunState.won || _engine.state == RunState.dead) {
       if (mounted) setState(() {});
@@ -281,10 +374,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     skin: skin,
                     bpm: _pulseBpm,
                     repaint: _frame,
+                    ghost: _engine.state == RunState.playing ? _ghost?.engine : null,
+                    hintPath: _safePath,
+                    hintFrom: _hintFrom ?? 0,
+                    hintTo: _hintTo ?? 0,
                   ),
                 ),
               ),
               _buildHud(),
+              if (_hintBanner > 0 && !_paused) _buildHintBanner(),
               if (_engine.state == RunState.ready && !_paused) _buildTapToStart(),
               if (_paused) _buildPauseMenu(),
               if (showWin) _buildWinPanel(),
@@ -388,7 +486,37 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               'HOLD ANYWHERE TO START',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: 3),
             ),
+            if (_bestGhost != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Racing your ghost: best ${(_bestGhost!.progress * 100).floor()}%',
+                style: const TextStyle(color: Colors.white60, fontWeight: FontWeight.w600),
+              ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHintBanner() {
+    return IgnorePointer(
+      child: Align(
+        alignment: const Alignment(0, -0.55),
+        child: Opacity(
+          opacity: _hintBanner.clamp(0.0, 1.0),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _palette.accent),
+            ),
+            child: const Text(
+              'HINT: follow the glowing dots',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: 1),
+            ),
+          ),
         ),
       ),
     );
@@ -457,9 +585,18 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   Widget _buildWinPanel() {
     final def = widget.level;
-    final hasNext = def != null && kLevels.indexOf(def) < kLevels.length - 1;
+    final idx = def == null || _daily ? -1 : kLevels.indexOf(def);
+    final hasNext = idx >= 0 && idx < kLevels.length - 1;
+    final streak = ProgressService.instance.dailyStreak;
     return _panel(children: [
-      const NeonTitle('LEVEL COMPLETE!', size: 40, color: Color(0xFF4DFF9A)),
+      NeonTitle(_daily ? 'DAILY CLEARED!' : 'LEVEL COMPLETE!', size: 40, color: const Color(0xFF4DFF9A)),
+      if (_daily) ...[
+        const SizedBox(height: 6),
+        Text(
+          streak > 1 ? '$streak-day streak! Come back tomorrow for a new one.' : 'Come back tomorrow for a new one.',
+          style: const TextStyle(color: Color(0xFFFFD23F), fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+      ],
       const SizedBox(height: 8),
       Text(
         '$_title  ·  ${_engine.attempts} attempt${_engine.attempts == 1 ? '' : 's'}  ·  ${_engine.runTime.toStringAsFixed(1)}s',
