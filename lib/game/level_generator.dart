@@ -41,6 +41,12 @@ class LevelBuilder {
   final double Function(double x) difficultyAt;
   final bool allowSpeedPortals;
   final bool allowMiniPortals;
+
+  /// Off by default: these consume random numbers, so turning them on for
+  /// a shipped level would change its geometry (see
+  /// test/level_fingerprint_test.dart).
+  final bool allowReversePortals;
+  final bool allowDualPortals;
   final math.Random _rng;
 
   /// Everything with x < [generatedTo] exists.
@@ -69,6 +75,8 @@ class LevelBuilder {
     required this.difficultyAt,
     this.allowSpeedPortals = true,
     this.allowMiniPortals = true,
+    this.allowReversePortals = false,
+    this.allowDualPortals = false,
   })  : _rng = math.Random(seed),
         _pathY = level.startY {
     // Open area behind the start so the camera never shows the void.
@@ -151,13 +159,28 @@ class LevelBuilder {
       level.portals.add(Portal(x0 + 0.01, kind));
       _mode = _mode.apply(kind);
     }
+    // Reverse needs no geometry change: the solver already tries both
+    // inputs at every step, it only changes which one the player presses.
+    if (allowReversePortals && _rng.nextDouble() < (_mode.reversed ? 0.5 : 0.22)) {
+      final kind = _mode.reversed ? PortalKind.reverseOff : PortalKind.reverseOn;
+      level.portals.add(Portal(x0 + 0.02, kind));
+      _mode = _mode.apply(kind);
+    }
   }
 
   void _addSection() {
     final x0 = generatedTo;
     final d = Difficulty(difficultyAt(x0));
     _maybeAddPortals(x0, d);
-    final type = _pickType(d);
+    var type = _pickType(d);
+    // A dual section is always a symmetric room (walls at 0.5 / 9.5), so the
+    // twin's mirrored corridor is the same corridor. The twin appears just
+    // after the section starts and leaves just before it ends, never
+    // straddling a wall change.
+    final dualSection = allowDualPortals && _sections >= 2 && _rng.nextDouble() < 0.25;
+    if (dualSection && (type == SectionType.tunnel || type == SectionType.runway)) {
+      type = SectionType.spikeRoom;
+    }
 
     final mini = _mode.mini;
     final slope = LevelData.slopeFor(mini);
@@ -181,8 +204,16 @@ class LevelBuilder {
       _placeWallSpikes(path, gap, clearance, d);
     } else {
       _addWalls(x0, x1, _roomFloor, _roomCeiling);
+      if (dualSection) {
+        level.portals.add(Portal(x0 + 1.5, PortalKind.dualOn));
+        _mirrorHazards = true;
+      }
       if (type != SectionType.runway) {
         _placeHazards(type, path, x0, x1, clearance, d);
+      }
+      if (dualSection) {
+        _mirrorHazards = false;
+        level.portals.add(Portal(x1 - 1.5, PortalKind.dualOff));
       }
     }
 
@@ -251,10 +282,16 @@ class LevelBuilder {
     var best = double.infinity;
     final from = math.max(xa, path.first.x), to = math.min(xb, path.last.x);
     for (var x = from; x <= to; x += 0.05) {
-      best = math.min(best, dist(x, pathYAt(path, x)));
+      final y = pathYAt(path, x);
+      best = math.min(best, dist(x, y));
+      // In a dual section the mirrored twin flies the mirrored path.
+      if (_mirrorHazards) best = math.min(best, dist(x, LevelData.worldHeight - y));
     }
     return best;
   }
+
+  /// True while placing hazards for a dual (mirrored twin) section.
+  bool _mirrorHazards = false;
 
   void _placeHazards(SectionType type, List<Vec> path, double x0, double x1, double clearance, Difficulty d) {
     final newSpikes = <Spike>[];
@@ -359,6 +396,10 @@ class LevelBuilder {
     for (var sx = x; sx <= x + w; sx += 0.1) {
       final py = pathYAt(path, sx);
       pathExtreme = onFloor ? math.min(pathExtreme, py) : math.max(pathExtreme, py);
+      if (_mirrorHazards) {
+        final my = LevelData.worldHeight - py;
+        pathExtreme = onFloor ? math.min(pathExtreme, my) : math.max(pathExtreme, my);
+      }
     }
     var h = ((pathExtreme - baseY).abs() - clearance) * _rand(0.8, 1.0);
     for (var attempt = 0; attempt < 10 && h >= 0.7; attempt++) {

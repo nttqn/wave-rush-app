@@ -54,6 +54,7 @@ class GamePainter extends CustomPainter {
     _drawHazards(canvas, x0, x1);
     if (cameraLeft == null) {
       _drawTrail(canvas, x0);
+      _drawTwinTrail(canvas);
       if (engine.state != RunState.dead) _drawWave(canvas);
     }
     _drawParticles(canvas);
@@ -209,6 +210,10 @@ class GamePainter extends CustomPainter {
         PortalKind.speedVeryFast => const Color(0xFFFF5CF0),
         PortalKind.miniOn => const Color(0xFFFF4FD8),
         PortalKind.miniOff => const Color(0xFF4DFF6A),
+        PortalKind.reverseOn => const Color(0xFFFFE14D),
+        PortalKind.reverseOff => const Color(0xFF8FA6D6),
+        PortalKind.dualOn => const Color(0xFFFFFFFF),
+        PortalKind.dualOff => const Color(0xFF9FB4C8),
       };
 
   void _drawPortals(Canvas canvas, double x0, double x1) {
@@ -250,6 +255,33 @@ class GamePainter extends CustomPainter {
               ..moveTo(cx - 0.12, y - 0.2)
               ..lineTo(cx + 0.12, y)
               ..lineTo(cx - 0.12, y + 0.2),
+            icon,
+          );
+        }
+      } else if (p.kind == PortalKind.reverseOn || p.kind == PortalKind.reverseOff) {
+        // Up and down arrows side by side: "controls swap".
+        final y = cy + hh + 0.55;
+        for (final (dx, up) in [(-0.2, true), (0.2, false)]) {
+          final sx = p.x + dx, s = up ? 1.0 : -1.0;
+          canvas.drawLine(Offset(sx, y - 0.25 * s), Offset(sx, y + 0.25 * s), icon);
+          canvas.drawPath(
+            Path()
+              ..moveTo(sx - 0.13, y + 0.12 * s)
+              ..lineTo(sx, y + 0.25 * s)
+              ..lineTo(sx + 0.13, y + 0.12 * s),
+            icon,
+          );
+        }
+      } else if (p.kind == PortalKind.dualOn || p.kind == PortalKind.dualOff) {
+        // Two small arrows, one above the other: "twin".
+        final y = cy + hh + 0.55;
+        for (final dy in [-0.2, 0.2]) {
+          canvas.drawPath(
+            Path()
+              ..moveTo(p.x + 0.18, y + dy)
+              ..lineTo(p.x - 0.14, y + dy + 0.12)
+              ..lineTo(p.x - 0.14, y + dy - 0.12)
+              ..close(),
             icon,
           );
         }
@@ -333,11 +365,19 @@ class GamePainter extends CustomPainter {
   void _drawWave(Canvas canvas) {
     // Real movement angle: lies flat while sliding along the ground.
     final angle = engine.state == RunState.playing ? engine.heading : math.atan(engine.direction * engine.slope);
-    canvas.save();
-    canvas.translate(engine.x, engine.y);
-    canvas.rotate(angle);
     final k = engine.mode.mini ? 0.62 : 1.0;
-    canvas.scale(k, k);
+    _drawArrow(canvas, Offset(engine.x, engine.y), angle, k, skin.body, 1);
+    if (engine.mode.dual) {
+      // The mirrored twin: same x, mirrored height and angle.
+      _drawArrow(canvas, Offset(engine.x, LevelData.worldHeight - engine.y), -angle, k, Colors.white, 0.9);
+    }
+  }
+
+  void _drawArrow(Canvas canvas, Offset at, double angle, double scale, Color body, double alpha) {
+    canvas.save();
+    canvas.translate(at.dx, at.dy);
+    canvas.rotate(angle);
+    canvas.scale(scale, scale);
     final arrow = Path()
       ..moveTo(0.45, 0)
       ..lineTo(-0.32, 0.32)
@@ -347,19 +387,41 @@ class GamePainter extends CustomPainter {
     canvas.drawPath(
       arrow,
       Paint()
-        ..color = skin.body.withValues(alpha: 0.5)
+        ..color = body.withValues(alpha: 0.5 * alpha)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.2),
     );
-    canvas.drawPath(arrow, Paint()..color = skin.body);
+    canvas.drawPath(arrow, Paint()..color = body.withValues(alpha: alpha));
     canvas.drawPath(
       arrow,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.06
         ..strokeJoin = StrokeJoin.round
-        ..color = Colors.white,
+        ..color = Colors.white.withValues(alpha: alpha),
     );
     canvas.restore();
+  }
+
+  /// The twin's trail: the real trail since the dual portal, mirrored.
+  void _drawTwinTrail(Canvas canvas) {
+    final since = engine.dualSinceX;
+    if (since == null || !engine.mode.dual) return;
+    const h = LevelData.worldHeight;
+    final pts = engine.trail.where((p) => p.x >= since).toList();
+    final path = Path()..moveTo(since, h - (pts.isEmpty ? engine.y : pts.first.y));
+    for (final p in pts) {
+      path.lineTo(p.x, h - p.y);
+    }
+    path.lineTo(engine.x, h - engine.y);
+    final w = engine.mode.mini ? 0.13 : 0.22;
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = w
+        ..strokeJoin = StrokeJoin.miter
+        ..color = Colors.white.withValues(alpha: 0.75),
+    );
   }
 
   void _drawParticles(Canvas canvas) {

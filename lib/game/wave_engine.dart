@@ -72,7 +72,12 @@ class WaveEngine {
   double get radius => LevelData.radiusFor(mode.mini);
 
   /// Vertical velocity sign right now (+1 rising, -1 falling).
-  double get direction => holding ? 1 : -1;
+  /// A reverse portal flips the controls: holding then dives.
+  double get direction => (holding != mode.reversed) ? 1 : -1;
+
+  /// World x where the current dual (mirrored twin) stretch began, or null
+  /// when there is no twin. The painter mirrors the trail from here on.
+  double? dualSinceX;
 
   double get progress => endless ? 0 : (x / level.length).clamp(0.0, 1.0);
 
@@ -130,6 +135,8 @@ class WaveEngine {
     while (_nextPortal < portals.length && portals[_nextPortal].x <= x) {
       final p = portals[_nextPortal++];
       mode = mode.apply(p.kind);
+      if (p.kind == PortalKind.dualOn) dualSinceX = x;
+      if (p.kind == PortalKind.dualOff) dualSinceX = null;
       trail.add(Vec(x, y));
       onPortal?.call(p.kind);
     }
@@ -137,7 +144,7 @@ class WaveEngine {
     runTime += fixedDt;
     final dx = speed * fixedDt;
     final wanted = direction * slope * dx;
-    final ny = level.resolveStep(x + dx, y, wanted, dx, radius);
+    final ny = level.resolveStep(x + dx, y, wanted, dx, radius, dual: mode.dual);
     x += dx;
     if (ny == null) {
       y += wanted;
@@ -207,6 +214,7 @@ class WaveEngine {
     stateTimer = 0;
     _acc = 0;
     _lastDy = double.nan;
+    dualSinceX = null;
     heading = 0;
     sliding = false;
     trail.clear();
@@ -244,7 +252,7 @@ class LevelSolver {
       final next = <int, double>{};
       for (final y in states.values) {
         for (final move in [dy, -dy]) {
-          final ny = level.resolveStep(nx, y, move, nx - x, r);
+          final ny = level.resolveStep(nx, y, move, nx - x, r, dual: mode.dual);
           if (ny == null) continue;
           next.putIfAbsent((ny / bucket).round(), () => ny);
         }

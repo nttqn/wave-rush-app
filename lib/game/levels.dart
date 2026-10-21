@@ -17,6 +17,11 @@ class LevelDef {
   final double seconds;
   final bool speedPortals;
   final bool miniPortals;
+
+  /// New in 1.1. Only new levels (13+), Daily and Endless turn these on:
+  /// enabling them on a shipped level would change its geometry.
+  final bool reversePortals;
+  final bool dualPortals;
   final int palette;
   final int music;
 
@@ -32,6 +37,8 @@ class LevelDef {
     required this.music,
     this.speedPortals = true,
     this.miniPortals = true,
+    this.reversePortals = false,
+    this.dualPortals = false,
   });
 
   /// 1..5 "stars" shown on the level card.
@@ -48,6 +55,8 @@ class LevelDef {
       difficultyAt: (x) => difficultyFrom + (difficultyTo - difficultyFrom) * (x / target).clamp(0.0, 1.0),
       allowSpeedPortals: speedPortals,
       allowMiniPortals: miniPortals,
+      allowReversePortals: reversePortals,
+      allowDualPortals: dualPortals,
     );
     builder.extendTo(target);
     builder.finish();
@@ -68,6 +77,11 @@ const List<LevelDef> kLevels = [
   LevelDef(id: 10, name: 'Quantum Zig', seed: 10037, difficultyFrom: 0.68, difficultyTo: 0.9, baseSpeed: 9.5, seconds: 65, palette: 3, music: 0),
   LevelDef(id: 11, name: 'Eclipse', seed: 11149, difficultyFrom: 0.76, difficultyTo: 0.96, baseSpeed: 10, seconds: 68, palette: 4, music: 1),
   LevelDef(id: 12, name: 'Singularity', seed: 12251, difficultyFrom: 0.85, difficultyTo: 1.0, baseSpeed: 10, seconds: 72, palette: 5, music: 2),
+  // 1.1: levels built around the flip (reverse) and twin (dual) portals.
+  LevelDef(id: 13, name: 'Mirror Gate', seed: 13367, difficultyFrom: 0.2, difficultyTo: 0.4, baseSpeed: 8, seconds: 50, palette: 3, music: 0, reversePortals: true),
+  LevelDef(id: 14, name: 'Twin Signal', seed: 14479, difficultyFrom: 0.25, difficultyTo: 0.48, baseSpeed: 8, seconds: 52, palette: 4, music: 1, dualPortals: true),
+  LevelDef(id: 15, name: 'Flipside', seed: 15583, difficultyFrom: 0.45, difficultyTo: 0.7, baseSpeed: 9, seconds: 58, palette: 1, music: 2, reversePortals: true, dualPortals: true),
+  LevelDef(id: 16, name: 'Parallax', seed: 16691, difficultyFrom: 0.7, difficultyTo: 0.95, baseSpeed: 9.5, seconds: 66, palette: 5, music: 0, reversePortals: true, dualPortals: true),
 ];
 
 /// Endless mode: difficulty keeps climbing with distance, levels off at max.
@@ -77,5 +91,7 @@ LevelBuilder buildEndless(int seed) {
     seed: seed,
     level: level,
     difficultyAt: (x) => (x / 1600).clamp(0.0, 1.0),
+    allowReversePortals: true,
+    allowDualPortals: true,
   );
 }

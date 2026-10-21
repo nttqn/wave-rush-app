@@ -33,7 +33,25 @@ class Saw {
   const Saw(this.x, this.y, this.radius);
 }
 
-enum PortalKind { speedSlow, speedNormal, speedFast, speedVeryFast, miniOn, miniOff }
+/// New kinds must only ever be appended: share codes store `kind.index`.
+enum PortalKind {
+  speedSlow,
+  speedNormal,
+  speedFast,
+  speedVeryFast,
+  miniOn,
+  miniOff,
+
+  /// Controls flip: holding makes the wave fall, releasing makes it rise.
+  reverseOn,
+  reverseOff,
+
+  /// A mirrored twin wave appears (y → worldHeight - y). Both must stay
+  /// clear, so the flyable corridor is the overlap of the real one and its
+  /// mirror image.
+  dualOn,
+  dualOff,
+}
 
 extension PortalKindInfo on PortalKind {
   bool get isSpeed => index <= PortalKind.speedVeryFast.index;
@@ -53,18 +71,33 @@ class Portal {
   const Portal(this.x, this.kind);
 }
 
-/// Speed multiplier + mini flag in effect at some x (portals are applied in
-/// order as the wave passes them).
+/// Speed multiplier + mini / reversed / dual flags in effect at some x
+/// (portals are applied in order as the wave passes them).
 class ModeState {
   final double speedMultiplier;
   final bool mini;
-  const ModeState(this.speedMultiplier, this.mini);
+  final bool reversed;
+  final bool dual;
+  const ModeState(this.speedMultiplier, this.mini, {this.reversed = false, this.dual = false});
 
   static const initial = ModeState(1.0, false);
 
-  ModeState apply(PortalKind kind) => kind.isSpeed
-      ? ModeState(kind.speedMultiplier, mini)
-      : ModeState(speedMultiplier, kind == PortalKind.miniOn);
+  ModeState _with({double? speed, bool? mini, bool? reversed, bool? dual}) => ModeState(
+        speed ?? speedMultiplier,
+        mini ?? this.mini,
+        reversed: reversed ?? this.reversed,
+        dual: dual ?? this.dual,
+      );
+
+  ModeState apply(PortalKind kind) => switch (kind) {
+        PortalKind.miniOn => _with(mini: true),
+        PortalKind.miniOff => _with(mini: false),
+        PortalKind.reverseOn => _with(reversed: true),
+        PortalKind.reverseOff => _with(reversed: false),
+        PortalKind.dualOn => _with(dual: true),
+        PortalKind.dualOff => _with(dual: false),
+        _ => _with(speed: kind.speedMultiplier),
+      };
 }
 
 /// All geometry of one level (or of the endless run generated so far).
@@ -196,18 +229,29 @@ class LevelData {
   /// The wave (radius [r]) moved from height [y] by [dy] while advancing
   /// [dx] to [nx]. Returns the resolved new height — pushed out of any
   /// slide surface it sank into — or null if it crashed.
-  double? resolveStep(double nx, double y, double dy, double dx, double r) {
+  ///
+  /// With [dual], a mirrored twin flies at `worldHeight - y`: the real wave
+  /// is then bounded by the overlap of the corridor and its mirror image,
+  /// and both waves are checked against hazards. That keeps the state one
+  /// height, so the solver stays exact.
+  double? resolveStep(double nx, double y, double dy, double dx, double r, {bool dual = false}) {
     var ny = y + dy;
     // A slide surface can push the wave by at most its own rise over this
     // step plus the wave's own vertical travel; more than that means the
     // wave went into the side of a step.
     final maxPush = maxSlideSlope * dx + dy.abs() + 1e-6;
-    final f = floorAt(nx) + r;
+    var floorY = floorAt(nx), ceilY = ceilingAt(nx);
+    if (dual) {
+      final mirroredFloor = worldHeight - ceilY, mirroredCeil = worldHeight - floorY;
+      floorY = math.max(floorY, mirroredFloor);
+      ceilY = math.min(ceilY, mirroredCeil);
+    }
+    final f = floorY + r;
     if (ny < f) {
       if (f - ny > maxPush) return null;
       ny = f;
     }
-    final c = ceilingAt(nx) - r;
+    final c = ceilY - r;
     if (ny > c) {
       if (ny - c > maxPush) return null;
       ny = c;
@@ -216,6 +260,7 @@ class LevelData {
     if (ny < f - 1e-9) return null;
     if (ny - r < 0 || ny + r > worldHeight) return null;
     if (hitsHazard(nx, ny, r)) return null;
+    if (dual && hitsHazard(nx, worldHeight - ny, r)) return null;
     return ny;
   }
 
