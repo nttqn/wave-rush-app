@@ -112,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             children: [
                               ArrowGlyph(color: skin.body, size: 56),
                               const SizedBox(width: 10),
-                              const NeonTitle('WAVE RUSH'),
+                              const NeonTitle('MIRRORWING'),
                             ],
                           ),
                           const Text(

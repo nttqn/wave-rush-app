@@ -38,14 +38,14 @@ jobs:
           ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
         run: |
           set -e
-          # Wave Rush's real AdMob App ID. It isn't secret (it ships in
+          # The real AdMob App ID. It isn't secret (it ships in
           # every APK's manifest), so it lives here; the ADMOB_APP_ID secret
           # can still override it.
           APP_ID="${ADMOB_APP_ID:-ca-app-pub-9078637596840810~6351917162}"
           MANIFEST=android/app/src/main/AndroidManifest.xml
           sed -i "s#<application#<uses-permission android:name=\"android.permission.INTERNET\"/>\n  <application#" "$MANIFEST"
           sed -i "s#</application>#    <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"${APP_ID}\"/>\n  </application>#" "$MANIFEST"
-          sed -i -E 's/android:label="[^"]*"/android:label="Wave Rush"/g' "$MANIFEST"
+          sed -i -E 's/android:label="[^"]*"/android:label="Mirrorwing"/g' "$MANIFEST"
           # Landscape-only game: lock it at the manifest level too, so the
           # launch splash doesn't flash in portrait before Dart's
           # SystemChrome.setPreferredOrientations kicks in.
@@ -241,7 +241,7 @@ jobs:
             echo "::warning::ADMOB_APP_ID_IOS secret not set — using Google's public iOS TEST AdMob App ID. Ads will show as test ads only until a real iOS AdMob app entry exists."
           fi
           plutil -replace GADApplicationIdentifier -string "$APP_ID" ios/Runner/Info.plist
-          plutil -replace CFBundleDisplayName -string "Wave Rush" ios/Runner/Info.plist
+          plutil -replace CFBundleDisplayName -string "Mirrorwing" ios/Runner/Info.plist
           # Landscape-only game (Dart also locks it via SystemChrome). iPad
           # needs UIRequiresFullScreen for a landscape-only app to pass App
           # Store validation, since it opts out of Split View multitasking.

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// AdMob banner + interstitial, Wave Rush's real ad units on both platforms.
+/// AdMob banner + interstitial, Mirrorwing's real ad units on both platforms.
 /// AdMob ad units are platform-specific, so Android and iOS each have their
 /// own. The App IDs live outside the code: Android's in the CI workflow,
 /// iOS's in the ADMOB_APP_ID_IOS GitHub secret.
