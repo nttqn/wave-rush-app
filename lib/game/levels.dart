@@ -46,7 +46,11 @@ class LevelDef {
 
   String get difficultyLabel => const ['Easy', 'Normal', 'Hard', 'Harder', 'Insane'][stars - 1];
 
-  LevelData build() {
+  LevelData build() => buildWithPath().level;
+
+  /// The level plus the generator's guaranteed-safe path through it (used
+  /// to draw a hint where the player keeps crashing).
+  ({LevelData level, List<Vec> safePath}) buildWithPath() {
     final level = LevelData(baseSpeed: baseSpeed);
     final target = seconds * baseSpeed;
     final builder = LevelBuilder(
@@ -60,7 +64,7 @@ class LevelDef {
     );
     builder.extendTo(target);
     builder.finish();
-    return level;
+    return (level: level, safePath: builder.safePath);
   }
 }
 

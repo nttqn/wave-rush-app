@@ -79,6 +79,15 @@ class WaveEngine {
   /// when there is no twin. The painter mirrors the trail from here on.
   double? dualSinceX;
 
+  /// Fixed steps simulated in the current attempt.
+  int stepIndex = 0;
+
+  /// Steps at which the effective input flipped (hold ↔ release), from
+  /// released at step 0. Physics is fixed-step and deterministic, so this
+  /// list alone replays the attempt exactly; see GhostRunner.
+  List<int> inputLog = [];
+  bool _loggedHolding = false;
+
   double get progress => endless ? 0 : (x / level.length).clamp(0.0, 1.0);
 
   /// Endless-mode score: metres flown.
@@ -131,6 +140,11 @@ class WaveEngine {
 
   void _step() {
     _ensureGenerated();
+    if (holding != _loggedHolding) {
+      inputLog.add(stepIndex);
+      _loggedHolding = holding;
+    }
+    stepIndex++;
     final portals = level.portals;
     while (_nextPortal < portals.length && portals[_nextPortal].x <= x) {
       final p = portals[_nextPortal++];
@@ -175,6 +189,12 @@ class WaveEngine {
     }
   }
 
+  /// Advances exactly one fixed step (ghost replay drives its engine this
+  /// way, in lockstep with the player's).
+  void stepOnce() {
+    if (state == RunState.playing) _step();
+  }
+
   void _die() {
     state = RunState.dead;
     stateTimer = 0;
@@ -215,6 +235,9 @@ class WaveEngine {
     _acc = 0;
     _lastDy = double.nan;
     dualSinceX = null;
+    stepIndex = 0;
+    inputLog = [];
+    _loggedHolding = false;
     heading = 0;
     sliding = false;
     trail.clear();
