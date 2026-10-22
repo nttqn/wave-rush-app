@@ -1,0 +1,10 @@
+Welcome to Mirrorwing, the new name of Wave Rush, with a big update:
+
+- Twin arrows: fly through a DUAL portal and a mirrored twin joins you. Both of you have to make it through.
+- Flipped controls: FLIP portals swap your controls (hold to fall, release to rise).
+- 4 new levels built around the new portals, now 16 in total.
+- Daily Challenge: a new level every day, the same for every player, with a streak to keep.
+- Race your ghost: your best attempt on each level replays beside you.
+- Hints: stuck on one spot? After a few crashes, glowing dots show a path that works.
+- All-new music and sound effects.
+- Fixes and polish.
