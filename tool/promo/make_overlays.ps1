@@ -77,7 +77,7 @@ foreach ($kind in 'intro', 'outro') {
   Draw-Background $g 1920 1080
   $iconY = if ($kind -eq 'intro') { 380 } else { 330 }
   Draw-Icon $g 960 $iconY 330
-  Draw-Glow $g 'WAVE RUSH' $family $bi 150 (New-Object System.Drawing.RectangleF 0, ($iconY + 170), 1920, 190) $cyan ([System.Drawing.Color]::White)
+  Draw-Glow $g 'MIRRORWING' $family $bi 150 (New-Object System.Drawing.RectangleF 0, ($iconY + 170), 1920, 190) $cyan ([System.Drawing.Color]::White)
   if ($kind -eq 'intro') {
     Draw-Glow $g ("HOLD TO RISE  " + [char]0xB7 + "  RELEASE TO FALL") $famReg ([System.Drawing.FontStyle]::Bold) 52 (New-Object System.Drawing.RectangleF 0, 910, 1920, 80) ([System.Drawing.Color]::FromArgb(255, 30, 60, 120)) ([System.Drawing.Color]::FromArgb(255, 200, 225, 255))
   } else {
@@ -92,11 +92,12 @@ foreach ($kind in 'intro', 'outro') {
 
 $captions = @(
   'ONE TOUCH TO PLAY',
-  'DODGE SPIKES & SAWS',
-  'SPEED & MINI PORTALS',
-  '12 LEVELS: EASY TO INSANE',
-  'BUILD & SHARE YOUR LEVELS',
-  'ENDLESS MODE & SKINS'
+  'STEER TWO ARROWS AT ONCE',
+  'FLIP THE CONTROLS',
+  'RACE YOUR OWN GHOST',
+  '16 LEVELS: EASY TO INSANE',
+  'A NEW CHALLENGE EVERY DAY',
+  'BUILD & SHARE YOUR LEVELS'
 )
 for ($i = 0; $i -lt $captions.Count; $i++) {
   $b, $g = New-Canvas 1920 1080
@@ -114,7 +115,7 @@ foreach ($kind in 'intro', 'outro') {
   $b, $g = New-Canvas 1080 1920
   Draw-Background $g 1080 1920
   Draw-Icon $g 540 700 460
-  Draw-Glow $g 'WAVE RUSH' $family $bi 150 (New-Object System.Drawing.RectangleF 0, 960, 1080, 200) $cyan ([System.Drawing.Color]::White)
+  Draw-Glow $g 'MIRRORWING' $family $bi 124 (New-Object System.Drawing.RectangleF 0, 960, 1080, 200) $cyan ([System.Drawing.Color]::White)
   if ($kind -eq 'intro') {
     Draw-Glow $g "HOLD TO RISE`nRELEASE TO FALL" $famReg ([System.Drawing.FontStyle]::Bold) 64 (New-Object System.Drawing.RectangleF 0, 1200, 1080, 220) ([System.Drawing.Color]::FromArgb(255, 30, 60, 120)) ([System.Drawing.Color]::FromArgb(255, 200, 225, 255))
   } else {
@@ -132,20 +133,21 @@ foreach ($kind in 'intro', 'outro') {
 # middle (y 420..1500).
 $vcaps = @(
   "ONE TOUCH`nTO PLAY",
-  "DODGE SPIKES`n& SAWS",
-  "SPEED & MINI`nPORTALS",
-  "12 LEVELS`nEASY TO INSANE",
-  "BUILD & SHARE`nYOUR LEVELS",
-  "ENDLESS MODE`n& SKINS"
+  "STEER TWO ARROWS`nAT ONCE",
+  "FLIP THE`nCONTROLS",
+  "RACE YOUR`nOWN GHOST",
+  "16 LEVELS`nEASY TO INSANE",
+  "A NEW CHALLENGE`nEVERY DAY",
+  "BUILD & SHARE`nYOUR LEVELS"
 )
 for ($i = 0; $i -lt $vcaps.Count; $i++) {
   $b, $g = New-Canvas 1080 1920
   Draw-Background $g 1080 1920
   $g.FillRectangle((New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::Black)), 0, 420, 1080, 1080)
   $g.DrawRectangle((New-Object System.Drawing.Pen $cyan, 6), 0, 420, 1079, 1080)
-  Draw-Glow $g $vcaps[$i] $family $bi 104 (New-Object System.Drawing.RectangleF 0, 70, 1080, 320) $cyan ([System.Drawing.Color]::White)
+  Draw-Glow $g $vcaps[$i] $family $bi 84 (New-Object System.Drawing.RectangleF 0, 70, 1080, 320) $cyan ([System.Drawing.Color]::White)
   Draw-Icon $g 300 1705 150
-  Draw-Glow $g 'WAVE RUSH' $family $bi 86 (New-Object System.Drawing.RectangleF 380, 1640, 680, 130) $cyan ([System.Drawing.Color]::White)
+  Draw-Glow $g 'MIRRORWING' $family $bi 70 (New-Object System.Drawing.RectangleF 380, 1640, 680, 130) $cyan ([System.Drawing.Color]::White)
   Save $b $g ("v_frame{0}.png" -f ($i + 1))
 }
 $icon.Dispose()

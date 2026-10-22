@@ -1,0 +1,25 @@
+Thank you for reviewing Mirrorwing.
+
+WHAT CHANGED SINCE THE PREVIOUS SUBMISSION ("Wave Rush" 1.0.1, rejected under 4.3)
+- New name and identity: Mirrorwing.
+- New mechanics built around the name: DUAL portals add a mirrored twin arrow that the player controls at the same time (both must avoid every hazard), and FLIP portals reverse the controls. Four new levels (13-16) are designed around them.
+- New Daily Challenge: one generated level per day, the same for every player, with a streak counter.
+- Ghost replays: the player's best attempt on each level is replayed exactly beside them.
+- Hints: after four crashes near the same spot, the game draws a path that is known to work there. This is possible because every level is generated around a guaranteed path.
+- All in-game music and sound effects were replaced with audio created for this app only.
+
+NO ACCOUNT NEEDED
+No login, no account and no in-app purchases. Everything is available right after launch.
+
+HOW TO TEST QUICKLY
+- The game runs in landscape only (iPhone and iPad, full screen).
+- Touch and hold anywhere: the arrow rises while you hold and falls when you release. Floors and ceilings are safe to slide along; spikes, saws and vertical wall edges end the attempt, and it restarts instantly.
+- Level 14 ("Twin Signal") shows the twin arrow within its first ten seconds. Level 15 ("Flipside") has a FLIP portal about four seconds in. All levels are unlocked.
+- DAILY on the home screen opens today's challenge. CREATE opens the level editor: tap NEW, choose a tool on the left and tap the grid; the check-mark button proves the level can be beaten.
+- Pause with the button at the top right.
+
+DATA AND ADS
+Progress, settings, ghost recordings and player-made levels are stored only on the device. The app shows Google AdMob ads: a banner on menu screens and occasional interstitials between levels, never during gameplay. It does not use App Tracking Transparency and does not request the IDFA.
+Privacy policy: https://nttqn.github.io/wave-rush-app/privacy.html
+
+Contact: trungsmail@gmail.com

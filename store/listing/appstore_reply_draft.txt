@@ -1,0 +1,21 @@
+Hello, and thank you for the earlier review. I took the 4.3 feedback seriously and rebuilt the app before resubmitting. It is now version 1.1.0 (build 3), renamed "Mirrorwing". Answers to your questions:
+
+1. Mirrorwing is a one-touch reflex game. An arrow flies forward; holding the screen makes it climb and releasing makes it dive. Its central mechanic is the mirrored twin: after a DUAL portal the player steers two arrows at once, one the mirror image of the other, and both must avoid every hazard. FLIP portals reverse the controls. It offers short, skill-based sessions with instant retries.
+
+2. Players who enjoy hard, reflex-based arcade games, plus players who like building and sharing their own levels. Teenagers and adults.
+
+3. Three things set it apart from other games of this type. (a) The twin arrow: steering one input through two mirrored paths at once. (b) Every level is generated around a guaranteed path, so the game can always show a stuck player a route that works there, and the level editor can prove a player-made level is beatable before it is shared. (c) A daily challenge that is the same for everyone, and exact ghost replays of your own best run.
+
+4. [Describe the real testing: who, which devices, how long, and what changed because of it. Changes I can confirm came from playing the 1.0 build: the game was too hard because touching any wall ended the run, so walls became safe surfaces; the old audio was not unique to this app, so it was replaced.]
+
+5. It is a standalone product, not part of a suite. No other app on my account has this gameplay.
+
+6. No. My other apps are different kinds of games (word search, block puzzle, number game, tactics). This game's engine, level generator, solver and editor share nothing with their gameplay.
+
+7. Since version 1.1 the only things in common with my other apps are a small wrapper around the Google Mobile Ads SDK and the general project/build setup. All gameplay code, graphics (drawn in code) and audio are unique to this app. The in-game music and sound effects were replaced in 1.1 with audio created for this app. The menu music is a file that no other app of mine uses.
+
+8. No. No purchased template, third-party codebase or app generation service is used. Beyond Flutter and standard plugins (Google Mobile Ads, shared_preferences, audio playback), the code was written specifically for this app.
+
+9. No. I own the concept, the content and the branding.
+
+Thank you for taking another look.

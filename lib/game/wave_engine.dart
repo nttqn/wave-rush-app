@@ -75,6 +75,10 @@ class WaveEngine {
   /// A reverse portal flips the controls: holding then dives.
   double get direction => (holding != mode.reversed) ? 1 : -1;
 
+  /// The input that makes the wave climb toward [targetY] (or dive, if it
+  /// is below): accounts for flipped controls. Used by autopilots.
+  bool holdToReach(double targetY) => (targetY > y) != mode.reversed;
+
   /// World x where the current dual (mirrored twin) stretch began, or null
   /// when there is no twin. The painter mirrors the trail from here on.
   double? dualSinceX;

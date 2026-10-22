@@ -213,7 +213,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     final hintTo = _hintTo;
     if (hintTo != null && _engine.state == RunState.playing && _engine.x > hintTo + 1) {
       _deathXs.removeWhere((d) => d >= _hintFrom! && d <= hintTo);
-      _hintFrom = _hintTo = null;
+      // The painter takes the hint range at build time: rebuild to drop it.
+      if (mounted) setState(() => _hintFrom = _hintTo = null);
     }
     // Overlays (win / endless game over) appear after a short beat.
     if (before != _engine.state || _engine.state == RunState.won || _engine.state == RunState.dead) {
@@ -382,7 +383,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 ),
               ),
               _buildHud(),
-              if (_hintBanner > 0 && !_paused) _buildHintBanner(),
+              if (_hintTo != null && !_paused) _buildHintBanner(),
               if (_engine.state == RunState.ready && !_paused) _buildTapToStart(),
               if (_paused) _buildPauseMenu(),
               if (showWin) _buildWinPanel(),
@@ -500,22 +501,27 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildHintBanner() {
+    // Rebuilt every frame (the screen itself only rebuilds on state
+    // changes), so the banner actually fades out while the player flies.
     return IgnorePointer(
-      child: Align(
-        alignment: const Alignment(0, -0.55),
-        child: Opacity(
-          opacity: _hintBanner.clamp(0.0, 1.0),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _palette.accent),
-            ),
-            child: const Text(
-              'HINT: follow the glowing dots',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: 1),
-            ),
+      child: ValueListenableBuilder<int>(
+        valueListenable: _frame,
+        builder: (context, _, child) => _hintBanner <= 0
+            ? const SizedBox.shrink()
+            : Align(
+                alignment: const Alignment(0, -0.55),
+                child: Opacity(opacity: _hintBanner.clamp(0.0, 1.0), child: child),
+              ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _palette.accent),
+          ),
+          child: const Text(
+            'HINT: follow the glowing dots',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: 1),
           ),
         ),
       ),

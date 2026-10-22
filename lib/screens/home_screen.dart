@@ -59,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _last = elapsed;
     if (_demo.state == RunState.dead || _demo.x > 1400) _newDemo();
     final lookahead = _demo.speed * WaveEngine.fixedDt;
-    _demo.setHolding(_demoBuilder.safePathYAt(_demo.x + lookahead) > _demo.y);
+    _demo.setHolding(_demo.holdToReach(_demoBuilder.safePathYAt(_demo.x + lookahead)));
     _demo.update(dt);
     _frame.value++;
   }
