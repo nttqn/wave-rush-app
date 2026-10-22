@@ -4,8 +4,8 @@
 
 Hold to rise, release to fall. You steer a neon arrow through zig-zag tunnels, spike caves and saw fields.
 Built with Flutter. Android first, landscape only. The idea comes from "wave dash" style games, but all
-code and art here are original, and the graphics are drawn in code. Music and most sound effects are files supplied by
-the project owner; `tool/gen_audio.js` synthesizes the portal sound.
+code and art here are original, and the graphics are drawn in code. The in-game music and all sound effects are
+synthesized by `tool/gen_audio.js`; only the menu loop `m_title.mp3` is a file supplied by the project owner.
 
 ## Features
 - 16 levels, from Easy to Insane (13-16 added in 1.1 around the FLIP and DUAL portals). Each level's geometry is generated from a fixed seed, so it is the same on every device.
